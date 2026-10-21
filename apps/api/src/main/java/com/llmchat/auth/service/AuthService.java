@@ -13,6 +13,7 @@ import com.llmchat.auth.dto.TokenResponse;
 import com.llmchat.auth.model.User;
 import com.llmchat.auth.model.UserCredentials;
 import com.llmchat.auth.repository.UserRepository;
+import com.llmchat.common.MessageKey;
 import com.llmchat.exception.AppException;
 
 @Service
@@ -32,7 +33,7 @@ public class AuthService {
 
     public void register(RegisterRequest req) {
         if (userRepository.existEmail(req.email())) {
-            throw new AppException(HttpStatus.CONFLICT, "Email đã được đăng ký");
+            throw new AppException(HttpStatus.CONFLICT, MessageKey.EMAIL_ALREADY_EXISTS);
         }
         userRepository.insertUser(req.email(), passwordEncoder.encode(req.password()), req.displayName());
     }
@@ -46,13 +47,11 @@ public class AuthService {
     }
 
     public LoginResponse login(LoginRequest req) {
-        String errorMessage = "Email hoặc mật khẩu không đúng";
-
         UserCredentials userCredentials = userRepository.findCredentialsByEmail(req.email())
-                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, errorMessage));
+                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(req.password(), userCredentials.passwordHash())) {
-            throw new AppException(HttpStatus.UNAUTHORIZED, errorMessage);
+            throw new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_CREDENTIALS);
         }
 
         String accessToken = tokenService.createAccessToken(userCredentials.user());

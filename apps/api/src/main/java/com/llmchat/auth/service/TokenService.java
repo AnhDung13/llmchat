@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import com.llmchat.auth.model.User;
 import com.llmchat.auth.repository.RefreshTokenRepository;
+import com.llmchat.common.MessageKey;
 import com.llmchat.exception.AppException;
 
 @Service
@@ -64,7 +65,7 @@ public class TokenService {
 
     public UUID consumeRefreshToken(String token) {
         return refreshTokenRepository.consumeRefreshToken(hashToken(token))
-                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token"));
+                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_REFRESH_TOKEN));
     }
 
     private String hashToken(String token) {

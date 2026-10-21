@@ -14,6 +14,7 @@ import com.llmchat.auth.dto.RegisterRequest;
 import com.llmchat.auth.dto.TokenResponse;
 import com.llmchat.auth.service.AuthService;
 import com.llmchat.common.ApiResponse;
+import com.llmchat.common.MessageKey;
 
 import jakarta.validation.Valid;
 
@@ -30,14 +31,14 @@ public class AuthController {
     @PostMapping("/login")
     public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
         LoginResponse loginResponse = authService.login(loginRequest);
-        return ApiResponse.success(HttpStatus.OK, "Login Success", loginResponse);
+        return ApiResponse.success(HttpStatus.OK, MessageKey.LOGIN_SUCCESS, loginResponse);
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest registerRequest) {
         authService.register(registerRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success(HttpStatus.CREATED, "Create Success", null));
+                .body(ApiResponse.success(HttpStatus.CREATED, MessageKey.REGISTER_SUCCESS, null));
     }
 
     @PostMapping("/refresh")

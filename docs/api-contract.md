@@ -9,7 +9,7 @@ giao diện sẽ chạy mà không phải sửa gì phía web.
 - Body request/response là JSON (`Content-Type: application/json`),
   trừ endpoint stream ở bước 6.
 - **Mọi response JSON đều bọc trong envelope** (xem [Envelope](#envelope)). Khi tài liệu ghi
-  "Response `200 OK`: một `User`" thì `User` nằm trong field `body` của envelope.
+  "Response `200 OK`: một `User`" thì `User` nằm trong field `data` của envelope.
 - Thời gian là chuỗi ISO-8601 UTC, ví dụ `"2026-10-19T09:30:00Z"`
   (kiểu `java.time.Instant` của Java serialize ra đúng dạng này).
 - `id` của user là UUID dạng chuỗi (`UUID` trong DB, `java.util.UUID` trong Java).
@@ -28,46 +28,65 @@ một lần rồi gửi lại request. Refresh cũng thất bại thì frontend 
 
 ## Envelope
 
-Mọi response JSON, cả thành công lẫn lỗi, có cùng một dạng:
+Mọi response JSON, cả thành công lẫn lỗi, có cùng một dạng (`com.llmchat.common.ApiResponse`):
 
 ```json
 {
-  "statusCode": 201,
-  "responseCode": "SUCCESS",
-  "errorMessage": null,
-  "body": { "id": "3f2b8c1e-...", "email": "an@example.com", "displayName": "An", "createdAt": "..." }
+  "status": 200,
+  "message": "auth.loginSuccess",
+  "data": { "accessToken": "...", "user": { "id": "3f2b8c1e-...", "email": "an@example.com", "displayName": "An", "createdAt": "..." } }
 }
 ```
 
 | Field | Ý nghĩa |
 |---|---|
-| `statusCode` | Trùng với HTTP status của response. Frontend dựa vào **HTTP status**, field này chỉ để đọc cho tiện |
-| `responseCode` | Mã dạng chữ, xem bảng dưới |
-| `errorMessage` | `null` khi thành công. Khi lỗi: câu thông báo cho người dùng, frontend hiển thị nguyên văn |
-| `body` | Dữ liệu thật khi thành công. `null` khi lỗi hoặc khi endpoint không có dữ liệu trả về (logout, xoá) |
+| `status` | Trùng với HTTP status của response. Frontend dựa vào **HTTP status**, field này chỉ để đọc cho tiện |
+| `message` | **Message key** (không phải câu chữ), xem [Message key](#message-key). `null` khi không có gì cần báo |
+| `data` | Dữ liệu thật khi thành công. `null` khi lỗi hoặc khi endpoint không có dữ liệu trả về (logout, xoá) |
 
 Ví dụ lỗi:
 
 ```json
-{ "statusCode": 409, "responseCode": "EMAIL_ALREADY_EXISTS", "errorMessage": "Email đã được đăng ký", "body": null }
+{ "status": 409, "message": "auth.emailAlreadyExists", "data": null }
 ```
+
+## Message key
+
+Backend **không trả câu chữ viết cứng**. Field `message` chứa một key, frontend dùng i18next dịch sang ngôn ngữ người dùng
+đang chọn (vi/en) rồi hiện bằng toast.
+
+- Danh sách key: `apps/api/src/main/java/com/llmchat/common/MessageKey.java`
+- Bản dịch: `apps/web/src/locales/{vi,en}/server.json` (key `auth.loginSuccess` ↔ `{ "auth": { "loginSuccess": "..." } }`)
+- Thêm key mới thì thêm ở cả ba nơi. Frontend nhận một chuỗi không phải key đã biết thì hiển thị nguyên văn.
+
+| Key | HTTP | Khi nào |
+|---|---|---|
+| `auth.loginSuccess` | 200 | Đăng nhập thành công |
+| `auth.registerSuccess` | 201 | Đăng ký thành công |
+| `auth.logoutSuccess` | 200/204 | Đăng xuất |
+| `auth.emailAlreadyExists` | 409 | Email đã tồn tại |
+| `auth.invalidCredentials` | 401 | Sai email hoặc mật khẩu |
+| `auth.invalidRefreshToken` | 401 | Refresh token sai, hết hạn hoặc đã bị thu hồi |
+| `auth.unauthorized` | 401 | Token hợp lệ nhưng không còn user tương ứng |
+| `validation.failed` | 400 | Validation lỗi, không có key cụ thể hơn |
+| `validation.required` | 400 | Thiếu trường bắt buộc (`@NotBlank`) |
+| `validation.emailInvalid` | 400 | Sai định dạng email (`@Email`) |
+| `validation.passwordTooShort` | 400 | Mật khẩu < 8 ký tự |
+| `validation.displayNameTooLong` | 400 | Tên hiển thị > 50 ký tự |
+| `validation.malformedJson` | 400 | Body không phải JSON hợp lệ |
+| `conversation.notFound` | 404 | Không tìm thấy, **hoặc** conversation không thuộc về user đang đăng nhập |
+| `llm.failed` | 502 | Gọi LLM thất bại (kể cả event `error` của SSE) |
+| `error.notFound` | 404 | Sai đường dẫn |
+| `error.methodNotAllowed` | 405 | Sai HTTP method |
+| `error.internal` | 500 | Lỗi không lường trước |
+
+Validation có nhiều trường lỗi thì trả key của **trường lỗi đầu tiên** (frontend chỉ hiện một thông báo).
 
 ## Lỗi
 
-HTTP status vẫn phải đúng mã lỗi (không trả `200` cho lỗi). `responseCode` tương ứng:
-
-| HTTP | `responseCode` | Khi nào |
-|---|---|---|
-| 2xx | `SUCCESS` | Thành công |
-| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ (validation) |
-| 401 | `UNAUTHORIZED` | Chưa đăng nhập, sai mật khẩu, token không hợp lệ |
-| 404 | `NOT_FOUND` | Không tìm thấy, **hoặc** conversation không thuộc về user đang đăng nhập |
-| 409 | `EMAIL_ALREADY_EXISTS` | Email đã tồn tại |
-| 500 | `INTERNAL_ERROR` | Lỗi không lường trước |
-| 502 | `LLM_ERROR` | Gọi LLM thất bại |
-
-Frontend hiển thị `errorMessage`. Nếu response lỗi không có envelope (ví dụ lỗi Spring chưa được bọc),
-frontend vẫn đọc được `detail`/`title` của Problem Details, không có nữa thì dùng câu mặc định theo HTTP status.
+HTTP status vẫn phải đúng mã lỗi (không trả `200` cho lỗi). Nếu response lỗi không có envelope
+(ví dụ lỗi Spring chưa được bọc), frontend vẫn đọc được `detail`/`title` của Problem Details,
+không có nữa thì dùng câu mặc định theo HTTP status.
 
 ## Kiểu dữ liệu
 
