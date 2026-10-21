@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
+import { SendIcon, StopIcon } from '../ui/icons'
 
 type Props = {
   streaming: boolean
@@ -8,6 +10,7 @@ type Props = {
 }
 
 export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
+  const { t } = useTranslation('thread')
   const [text, setText] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -40,46 +43,45 @@ export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto w-full max-w-3xl px-4 pb-4">
-      <div className="flex items-end gap-2 rounded-2xl border border-zinc-300 bg-white p-2 shadow-sm transition focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 dark:border-zinc-700 dark:bg-zinc-900">
+    <form onSubmit={submit} className="mx-auto w-full max-w-3xl px-4 pt-2 pb-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-500/15 dark:border-night-700 dark:bg-night-850 dark:focus-within:border-indigo-500/60">
         <textarea
           ref={ref}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder="Nhắn tin cho AI…"
-          className="max-h-[200px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] outline-none placeholder:text-zinc-400"
+          placeholder={t('placeholder')}
+          aria-label={t('inputLabel')}
+          className="block max-h-[200px] w-full resize-none bg-transparent px-1 py-1 text-[15px] outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
         />
-        {streaming ? (
-          <button
-            type="button"
-            onClick={onStop}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900"
-            aria-label="Dừng"
-            title="Dừng"
-          >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden>
-              <rect x="5" y="5" width="14" height="14" rx="2" />
-            </svg>
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!text.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white transition hover:bg-emerald-700 disabled:bg-zinc-200 disabled:text-zinc-400 dark:disabled:bg-zinc-800"
-            aria-label="Gửi"
-            title="Gửi (Enter)"
-          >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M12 19V5M5 12l7-7 7 7" />
-            </svg>
-          </button>
-        )}
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <p className="truncate px-1 text-xs text-slate-400 dark:text-slate-500">
+            {t('hint')}
+          </p>
+          {streaming ? (
+            <button
+              type="button"
+              onClick={onStop}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              aria-label={t('stop')}
+              title={t('stop')}
+            >
+              <StopIcon size={14} />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!text.trim()}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-sm shadow-indigo-500/30 transition hover:bg-indigo-600 disabled:bg-indigo-300 disabled:shadow-none dark:disabled:bg-indigo-500/40"
+              aria-label={t('sendLabel')}
+              title={t('send')}
+            >
+              <SendIcon size={15} />
+            </button>
+          )}
+        </div>
       </div>
-      <p className="mt-2 text-center text-xs text-zinc-400">
-        Enter để gửi · Shift + Enter để xuống dòng · AI có thể trả lời sai
-      </p>
     </form>
   )
 }

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router'
 import { AuthPage } from './auth/AuthPage'
 import { AuthProvider } from './auth/AuthProvider'
@@ -6,8 +7,9 @@ import { ChatPage } from './chat/ChatPage'
 
 function RequireAuth() {
   const { user, loading } = useAuth()
+  const { t } = useTranslation('chat')
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-zinc-500">Đang kiểm tra đăng nhập…</div>
+    return <div className="flex h-full items-center justify-center text-sm text-slate-500">{t('checkingAuth')}</div>
   }
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }

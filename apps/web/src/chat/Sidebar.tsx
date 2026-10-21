@@ -1,7 +1,13 @@
+import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
-import { Logo } from '../auth/AuthPage'
 import { useAuth } from '../auth/context'
+import { setLanguage } from '../lib/i18n'
 import type { Conversation } from '../lib/types'
+import { useTheme } from '../lib/theme'
+import { ChatIcon, ChevronDownIcon, GlobeIcon, LogOutIcon, MoonIcon, MoreHIcon, PanelLeftIcon, PlusIcon, SettingsIcon, SunIcon, TrashIcon } from '../ui/icons'
+import { Avatar, Logo } from '../ui/Logo'
+import { Menu, iconButton } from '../ui/Menu'
 
 type Props = {
   conversations: Conversation[]
@@ -10,100 +16,124 @@ type Props = {
   onNewChat(): void
   onDelete(id: number): void
   onNavigate(): void
+  /** Thu gọn sidebar (desktop) / đóng ngăn kéo (mobile) */
+  onCollapse(): void
 }
 
-export function Sidebar({ conversations, loading, error, onNewChat, onDelete, onNavigate }: Props) {
+export function Sidebar({ conversations, loading, error, onNewChat, onDelete, onNavigate, onCollapse }: Props) {
   const { user, logout } = useAuth()
+  const { theme, toggle } = useTheme()
+  const { t, i18n } = useTranslation('sidebar')
+  const otherLanguage = i18n.resolvedLanguage === 'en' ? 'vi' : 'en'
+  const [listOpen, setListOpen] = useState(true)
 
   return (
-    <aside className="flex h-full w-72 flex-col border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900">
+    <aside className="flex h-full w-72 flex-col border-r border-slate-200 bg-white dark:border-night-700 dark:bg-night-950">
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
         <Logo size={28} />
-        <span className="font-semibold tracking-tight">LLM Chat</span>
+        <span className="flex-1 font-semibold tracking-tight">LLM Chat</span>
+        <button type="button" onClick={onCollapse} className={iconButton} aria-label={t('collapse')} title={t('collapse')}>
+          <PanelLeftIcon size={16} />
+        </button>
       </div>
 
       <div className="px-3 pb-2">
         <button
           type="button"
           onClick={onNewChat}
-          className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-medium shadow-sm transition hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:hover:bg-zinc-700"
+          className="flex w-full items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2.5 text-sm font-medium text-indigo-600 transition hover:bg-indigo-100 dark:bg-indigo-500 dark:text-white dark:hover:bg-indigo-600"
         >
-          <PlusIcon />
-          Cuộc trò chuyện mới
+          <PlusIcon size={16} />
+          {t('newChat')}
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label="Lịch sử trò chuyện">
-        <p className="px-2 pb-1.5 text-xs font-medium text-zinc-500">Gần đây</p>
-        {loading && <p className="px-2 py-1 text-sm text-zinc-500">Đang tải…</p>}
-        {error && <p className="px-2 py-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
-        {!loading && !error && conversations.length === 0 && (
-          <p className="px-2 py-1 text-sm text-zinc-500">Chưa có cuộc trò chuyện nào</p>
-        )}
-        <ul className="space-y-0.5">
-          {conversations.map((c) => (
-            <li key={c.id} className="group relative">
-              <NavLink
-                to={`/c/${c.id}`}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  `block truncate rounded-lg py-2 pr-9 pl-2 text-sm transition ${
-                    isActive
-                      ? 'bg-zinc-200 font-medium dark:bg-zinc-800'
-                      : 'text-zinc-700 hover:bg-zinc-200/60 dark:text-zinc-300 dark:hover:bg-zinc-800/60'
-                  }`
-                }
-                title={c.title}
-              >
-                {c.title}
-              </NavLink>
-              <button
-                type="button"
-                onClick={() => {
-                  if (confirm(`Xoá "${c.title}"?`)) onDelete(c.id)
-                }}
-                className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md p-1 text-zinc-500 opacity-0 transition group-hover:opacity-100 hover:bg-zinc-300 hover:text-red-600 focus:opacity-100 dark:hover:bg-zinc-700"
-                aria-label={`Xoá ${c.title}`}
-              >
-                <TrashIcon />
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      <div className="flex items-center gap-3 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-sm font-semibold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
-          {user?.displayName.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{user?.displayName}</p>
-          <p className="truncate text-xs text-zinc-500">{user?.email}</p>
-        </div>
+      <nav className="flex-1 overflow-y-auto px-3 py-2" aria-label={t('history')}>
         <button
           type="button"
-          onClick={logout}
-          className="rounded-md px-2 py-1 text-xs text-zinc-600 transition hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          onClick={() => setListOpen((o) => !o)}
+          aria-expanded={listOpen}
+          className="flex w-full items-center justify-between px-2 pt-1 pb-2 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
         >
-          Đăng xuất
+          {t('conversations')}
+          <ChevronDownIcon size={14} className={`transition ${listOpen ? 'rotate-180' : ''}`} />
         </button>
+
+        {listOpen && (
+          <>
+            {loading && <p className="px-2 py-1 text-sm text-slate-500">{t('loading')}</p>}
+            {error && <p className="px-2 py-1 text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {!loading && !error && conversations.length === 0 && (
+              <p className="px-2 py-1 text-sm text-slate-500">{t('empty')}</p>
+            )}
+            <ul className="space-y-0.5">
+              {conversations.map((c) => (
+                <li key={c.id} className="group relative">
+                  <NavLink
+                    to={`/c/${c.id}`}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      `flex items-center gap-2.5 rounded-lg py-2 pr-10 pl-2.5 text-sm transition ${
+                        isActive
+                          ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-night-800 dark:text-white'
+                          : 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-night-850'
+                      }`
+                    }
+                    title={c.title}
+                  >
+                    <ChatIcon size={15} className="shrink-0 opacity-70" />
+                    <span className="truncate">{c.title}</span>
+                  </NavLink>
+                  <div className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                    <Menu
+                      label={t('optionsFor', { title: c.title })}
+                      trigger={<MoreHIcon size={16} />}
+                      triggerClassName="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-night-700"
+                      items={[
+                        {
+                          label: t('delete'),
+                          icon: <TrashIcon size={15} />,
+                          danger: true,
+                          onSelect: () => {
+                            if (confirm(t('confirmDelete', { title: c.title }))) onDelete(c.id)
+                          },
+                        },
+                      ]}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </nav>
+
+      <div className="flex items-center gap-3 border-t border-slate-200 px-4 py-3 dark:border-night-700">
+        <Avatar name={user?.displayName} size={34} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{user?.displayName}</p>
+          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{user?.email}</p>
+        </div>
+        <Menu
+          label={t('settings')}
+          up
+          trigger={<SettingsIcon size={16} />}
+          triggerClassName={iconButton}
+          items={[
+            {
+              label: t(theme === 'dark' ? 'lightMode' : 'darkMode'),
+              icon: theme === 'dark' ? <SunIcon size={15} /> : <MoonIcon size={15} />,
+              onSelect: toggle,
+            },
+            {
+              label: t(`common:language.${otherLanguage}`),
+              icon: <GlobeIcon size={15} />,
+              onSelect: () => setLanguage(otherLanguage),
+            },
+            { label: t('logout'), icon: <LogOutIcon size={15} />, danger: true, onSelect: logout },
+          ]}
+        />
       </div>
     </aside>
-  )
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
-    </svg>
   )
 }

@@ -1,4 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useAuth } from '../auth/context'
+import { CheckIcon, CopyIcon } from '../ui/icons'
+import { Avatar, Logo } from '../ui/Logo'
 import { Markdown } from './Markdown'
 
 export type UiMessage = {
@@ -12,6 +16,8 @@ export type UiMessage = {
 }
 
 export function MessageList({ messages }: { messages: UiMessage[] }) {
+  const { user } = useAuth()
+  const { t } = useTranslation('thread')
   const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const last = messages.at(-1)
@@ -26,32 +32,32 @@ export function MessageList({ messages }: { messages: UiMessage[] }) {
 
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto">
-      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
+      <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
         {messages.map((m) =>
           m.role === 'user' ? (
-            <div key={m.key} className="flex justify-end">
-              <div className="max-w-[85%] rounded-2xl rounded-br-md bg-emerald-600 px-4 py-2.5 text-[15px] whitespace-pre-wrap text-white">
+            <div key={m.key} className="flex items-start gap-3">
+              <Avatar name={user?.displayName} size={30} />
+              <div className="max-w-[85%] rounded-2xl rounded-tl-md bg-indigo-50 px-4 py-2.5 text-[15px] whitespace-pre-wrap text-slate-800 dark:bg-night-800 dark:text-slate-100">
                 {m.content}
               </div>
             </div>
           ) : (
-            <div key={m.key} className="flex gap-3">
-              <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-[11px] font-bold text-white dark:bg-zinc-100 dark:text-zinc-900">
-                AI
-              </div>
-              <div className="min-w-0 flex-1 pt-0.5">
+            <div key={m.key} className="flex items-start gap-3">
+              <Logo size={30} />
+              <div className="min-w-0 flex-1 pt-1">
                 {m.content ? (
                   <Markdown text={m.content} />
                 ) : m.streaming ? (
                   <TypingDots />
                 ) : null}
-                {m.streaming && m.content && <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-zinc-400 align-middle" />}
-                {m.stopped && <p className="mt-2 text-xs text-zinc-500">Đã dừng</p>}
+                {m.streaming && m.content && <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-indigo-400 align-middle" />}
+                {m.stopped && <p className="mt-2 text-xs text-slate-500">{t('stopped')}</p>}
                 {m.error && (
-                  <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                  <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
                     {m.error}
                   </p>
                 )}
+                {!m.streaming && m.content && <CopyButton text={m.content} />}
               </div>
             </div>
           ),
@@ -62,13 +68,38 @@ export function MessageList({ messages }: { messages: UiMessage[] }) {
   )
 }
 
-function TypingDots() {
+function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation('thread')
+  const [copied, setCopied] = useState(false)
+  const label = t(copied ? 'copied' : 'copyAnswer')
   return (
-    <div className="flex h-6 items-center gap-1" aria-label="AI đang trả lời">
+    <div className="mt-2 flex">
+      <button
+        type="button"
+        onClick={() =>
+          void navigator.clipboard.writeText(text).then(() => {
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1500)
+          })
+        }
+        className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-night-800 dark:hover:text-slate-200"
+        aria-label={label}
+        title={label}
+      >
+        {copied ? <CheckIcon size={15} /> : <CopyIcon size={15} />}
+      </button>
+    </div>
+  )
+}
+
+function TypingDots() {
+  const { t } = useTranslation('thread')
+  return (
+    <div className="flex h-6 items-center gap-1" aria-label={t('typing')}>
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
-          className="h-1.5 w-1.5 animate-bounce rounded-full bg-zinc-400"
+          className="h-1.5 w-1.5 animate-bounce rounded-full bg-indigo-400"
           style={{ animationDelay: `${delay}ms` }}
         />
       ))}

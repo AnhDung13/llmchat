@@ -1,92 +1,89 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useMatch, useNavigate } from 'react-router'
+import { useAuth } from '../auth/context'
 import { api } from '../lib/api'
+import { errorMessage } from '../lib/i18n'
+import { keys } from '../lib/queryClient'
+import { useTheme } from '../lib/theme'
 import type { Conversation, Message } from '../lib/types'
+import { CalendarIcon, ChatIcon, CodeIcon, FileTextIcon, LightbulbIcon, MenuIcon, MoonIcon, MoreVIcon, PanelLeftIcon, SunIcon, TrashIcon } from '../ui/icons'
+import { Logo } from '../ui/Logo'
+import { Menu, iconButton } from '../ui/Menu'
 import { Composer } from './Composer'
 import { MessageList, type UiMessage } from './MessageList'
 import { Sidebar } from './Sidebar'
 
-const SUGGESTIONS = [
-  'Giải thích Dependency Injection trong Spring bằng ví dụ đời thường',
-  'JWT gồm những phần nào và vì sao không cần lưu session?',
-  'So sánh SSE và WebSocket cho ứng dụng chat',
-  'Viết câu SQL tạo bảng users cho H2',
+// Chữ của từng gợi ý nằm trong locales/<lang>/chat.json: suggestions.<id>.title / subtitle / prompt
+const SUGGESTIONS: { id: string; icon: ReactNode; tint: string }[] = [
+  { id: 'explain', icon: <LightbulbIcon size={18} />, tint: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
+  { id: 'code', icon: <CodeIcon size={18} />, tint: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400' },
+  { id: 'plan', icon: <CalendarIcon size={18} />, tint: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400' },
+  { id: 'summarize', icon: <FileTextIcon size={18} />, tint: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
 ]
 
 const toUi = (m: Message): UiMessage => ({ key: String(m.id), role: m.role, content: m.content })
-const errorText = (err: unknown) => (err instanceof Error ? err.message : 'Có lỗi xảy ra')
 const isAbort = (err: unknown) => err instanceof DOMException && err.name === 'AbortError'
 
-type Thread = { conversationId: number | null; messages: UiMessage[]; error?: string }
+/**
+ * Tin nhắn của một cuộc trò chuyện. Cache này cũng là nơi giữ tin nhắn đang stream,
+ * nên staleTime: Infinity để không bao giờ có lần tải lại nào đè lên.
+ */
+const messagesQuery = (conversationId: number) =>
+  queryOptions({
+    queryKey: keys.messages(conversationId),
+    queryFn: async ({ signal }) => (await api.listMessages(conversationId, signal)).map(toUi),
+    staleTime: Infinity,
+  })
 
 export function ChatPage() {
+  const { t } = useTranslation('chat')
   const match = useMatch('/c/:id')
   const conversationId = match?.params.id ? Number(match.params.id) : null
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
 
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [convLoading, setConvLoading] = useState(true)
-  const [convError, setConvError] = useState<string | null>(null)
+  const conversationsQuery = useQuery({
+    queryKey: keys.conversations,
+    queryFn: ({ signal }) => api.listConversations(signal),
+  })
+  const conversations = conversationsQuery.data ?? []
 
-  // Tin nhắn luôn đi kèm id cuộc trò chuyện của chúng: đổi cuộc trò chuyện thì
-  // thread cũ tự "không khớp" và bị coi là đang tải, không cần reset state trong effect.
-  const [thread, setThread] = useState<Thread>({ conversationId: null, messages: [] })
-  const [sendError, setSendError] = useState<string | null>(null)
+  const messagesResult = useQuery({ ...messagesQuery(conversationId ?? -1), enabled: conversationId !== null })
+  const messages = conversationId === null ? [] : (messagesResult.data ?? [])
+  const messagesLoading = conversationId !== null && messagesResult.isPending
+
+  // Lỗi đã hiện toast qua QueryCache/MutationCache (lib/queryClient.ts), ở đây không cần try/catch
+  const createConversation = useMutation({ mutationFn: () => api.createConversation() })
+  const deleteConversation = useMutation({
+    mutationFn: (id: number) => api.deleteConversation(id),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Conversation[]>(keys.conversations, (prev) => prev?.filter((c) => c.id !== id))
+      queryClient.removeQueries({ queryKey: keys.messages(id) })
+    },
+  })
+
   const [streaming, setStreaming] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false) // ngăn kéo trên mobile
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // thu gọn trên desktop
 
   const abortRef = useRef<AbortController | null>(null)
   const streamingConvRef = useRef<number | null>(null)
   const seqRef = useRef(0)
 
-  const refreshConversations = useCallback(
-    () =>
-      api
-        .listConversations()
-        .then(
-          (list) => {
-            setConversations(list)
-            setConvError(null)
-          },
-          (err: unknown) => setConvError(errorText(err)),
-        )
-        .finally(() => setConvLoading(false)),
-    [],
-  )
-
-  useEffect(() => {
-    void refreshConversations()
-  }, [refreshConversations])
-
   // Huỷ stream đang chạy khi rời trang (ví dụ đăng xuất)
   useEffect(() => () => abortRef.current?.abort(), [])
 
   // Người dùng chuyển sang cuộc trò chuyện khác → huỷ stream đang chạy ở cuộc cũ.
-  // Chỉ phụ thuộc URL: React Router đổi URL trong một transition, nên có lúc thread đã là cuộc mới mà URL chưa đổi.
+  // Chỉ phụ thuộc URL: React Router đổi URL trong một transition.
   useEffect(() => {
     if (streamingConvRef.current !== null && streamingConvRef.current !== conversationId) abortRef.current?.abort()
   }, [conversationId])
 
-  // Tải tin nhắn của cuộc trò chuyện đang mở (nếu chưa có)
-  const loadedId = thread.conversationId
-  useEffect(() => {
-    if (conversationId === null || loadedId === conversationId) return
-    let cancelled = false
-    api.listMessages(conversationId).then(
-      (ms) => !cancelled && setThread({ conversationId, messages: ms.map(toUi) }),
-      (err: unknown) => !cancelled && setThread({ conversationId, messages: [], error: errorText(err) }),
-    )
-    return () => {
-      cancelled = true
-    }
-  }, [conversationId, loadedId])
-
-  const messages = loadedId === conversationId ? thread.messages : []
-  const messagesLoading = conversationId !== null && loadedId !== conversationId
-  const pageError = sendError ?? (loadedId === conversationId ? thread.error : undefined)
-
   async function send(content: string) {
-    setSendError(null)
     const seq = ++seqRef.current
     const aiKey = `pending-ai-${seq}`
     const pending: UiMessage[] = [
@@ -94,24 +91,28 @@ export function ChatPage() {
       { key: aiKey, role: 'assistant', content: '', streaming: true },
     ]
 
-    let convId = conversationId
-    if (convId === null) {
+    let convId: number
+    if (conversationId === null) {
+      let conv: Conversation
       try {
-        const conv = await api.createConversation()
-        convId = conv.id
-        setConversations((prev) => [conv, ...prev])
-        setThread({ conversationId: conv.id, messages: pending }) // đã có sẵn → effect không tải lại
-        navigate(`/c/${conv.id}`)
-      } catch (err) {
-        setSendError(errorText(err))
-        return
+        conv = await createConversation.mutateAsync()
+      } catch {
+        return // toast do MutationCache hiện
       }
+      convId = conv.id
+      queryClient.setQueryData<Conversation[]>(keys.conversations, (prev) => [conv, ...(prev ?? [])])
+      // Gieo sẵn tin nhắn vào cache → trang /c/:id mới không phải tải từ backend
+      queryClient.setQueryData(keys.messages(conv.id), pending)
+      navigate(`/c/${conv.id}`)
     } else {
-      setThread((t) => ({ ...t, messages: [...t.messages, ...pending] }))
+      convId = conversationId
+      // Tin nhắn cũ đang tải dở thì đợi tải xong rồi mới nối thêm, để lần tải đó không đè mất tin mới
+      await queryClient.ensureQueryData(messagesQuery(convId)).catch(() => {})
+      queryClient.setQueryData<UiMessage[]>(keys.messages(convId), (prev) => [...(prev ?? []), ...pending])
     }
 
     const updateAi = (fn: (m: UiMessage) => UiMessage) =>
-      setThread((t) => ({ ...t, messages: t.messages.map((m) => (m.key === aiKey ? fn(m) : m)) }))
+      queryClient.setQueryData<UiMessage[]>(keys.messages(convId), (prev) => prev?.map((m) => (m.key === aiKey ? fn(m) : m)))
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -124,109 +125,151 @@ export function ChatPage() {
       }
     } catch (err) {
       if (isAbort(err)) updateAi((m) => ({ ...m, streaming: false, stopped: true }))
-      else updateAi((m) => ({ ...m, streaming: false, error: errorText(err) }))
+      else updateAi((m) => ({ ...m, streaming: false, error: errorMessage(err) }))
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null
         streamingConvRef.current = null
       }
       setStreaming(false)
-      void refreshConversations() // tiêu đề và thứ tự có thể đã đổi
+      // Tiêu đề và thứ tự có thể đã đổi
+      void queryClient.invalidateQueries({ queryKey: keys.conversations })
     }
   }
 
-  async function remove(id: number) {
-    try {
-      await api.deleteConversation(id)
-      setConversations((prev) => prev.filter((c) => c.id !== id))
-      if (id === conversationId) navigate('/')
-    } catch (err) {
-      setConvError(errorText(err))
-    }
+  function remove(id: number) {
+    deleteConversation.mutate(id, {
+      onSuccess: () => {
+        if (id === conversationId) navigate('/')
+      },
+    })
   }
 
   const current = conversations.find((c) => c.id === conversationId)
   const empty = conversationId === null && messages.length === 0
 
+  const sidebarProps = {
+    conversations,
+    loading: conversationsQuery.isPending,
+    error: conversationsQuery.error ? errorMessage(conversationsQuery.error) : null,
+    onDelete: remove,
+  }
+
   return (
     <div className="flex h-full">
-      {/* Sidebar: cố định trên desktop, trượt ra trên mobile */}
-      <div className="hidden md:block">
-        <Sidebar
-          conversations={conversations}
-          loading={convLoading}
-          error={convError}
-          onNewChat={() => {
-            setSendError(null)
-            navigate('/')
-          }}
-          onDelete={remove}
-          onNavigate={() => setSendError(null)}
-        />
-      </div>
+      {/* Sidebar: cố định trên desktop (có thể thu gọn), trượt ra trên mobile */}
+      {!sidebarCollapsed && (
+        <div className="hidden md:block">
+          <Sidebar
+            {...sidebarProps}
+            onNewChat={() => navigate('/')}
+            onNavigate={() => {}}
+            onCollapse={() => setSidebarCollapsed(true)}
+          />
+        </div>
+      )}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
           <div className="relative h-full w-72 shadow-xl">
             <Sidebar
-              conversations={conversations}
-              loading={convLoading}
-              error={convError}
+              {...sidebarProps}
               onNewChat={() => {
-                setSendError(null)
                 navigate('/')
                 setSidebarOpen(false)
               }}
-              onDelete={remove}
-              onNavigate={() => {
-                setSendError(null)
-                setSidebarOpen(false)
-              }}
+              onNavigate={() => setSidebarOpen(false)}
+              onCollapse={() => setSidebarOpen(false)}
             />
           </div>
         </div>
       )}
 
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-200 px-4 dark:border-zinc-800">
-          <button
-            type="button"
-            className="-ml-1 rounded-md p-1.5 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-800"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Mở danh sách trò chuyện"
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+        <header
+          className={`flex h-14 shrink-0 items-center gap-2 px-4 ${
+            conversationId !== null ? 'border-b border-slate-200 dark:border-night-700' : ''
+          }`}
+        >
+          <button type="button" className={`${iconButton} -ml-1 md:hidden`} onClick={() => setSidebarOpen(true)} aria-label={t('openConversationList')}>
+            <MenuIcon size={18} />
           </button>
-          <h1 className="truncate text-sm font-medium">{current?.title ?? 'Cuộc trò chuyện mới'}</h1>
+          {sidebarCollapsed && (
+            <button
+              type="button"
+              className={`${iconButton} -ml-1 hidden md:flex`}
+              onClick={() => setSidebarCollapsed(false)}
+              aria-label={t('openSidebar')}
+              title={t('openSidebar')}
+            >
+              <PanelLeftIcon size={16} />
+            </button>
+          )}
+          {conversationId !== null && (
+            <h1 className="flex min-w-0 items-center gap-2 text-sm font-medium">
+              <ChatIcon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
+              <span className="truncate">{current?.title ?? t('conversationFallback')}</span>
+            </h1>
+          )}
+
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className={iconButton}
+              aria-label={theme === 'dark' ? t('switchToLight') : t('switchToDark')}
+              title={theme === 'dark' ? t('lightTheme') : t('darkTheme')}
+            >
+              {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
+            </button>
+            {conversationId !== null && (
+              <Menu
+                label={t('conversationOptions')}
+                trigger={<MoreVIcon size={17} />}
+                triggerClassName={iconButton}
+                items={[
+                  {
+                    label: t('deleteConversation'),
+                    icon: <TrashIcon size={15} />,
+                    danger: true,
+                    onSelect: () => {
+                      if (confirm(t('confirmDelete', { title: current?.title ?? t('thisConversation') }))) remove(conversationId)
+                    },
+                  },
+                ]}
+              />
+            )}
+          </div>
         </header>
 
-        {pageError && (
-          <div role="alert" className="mx-auto mt-4 w-full max-w-3xl px-4">
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">{pageError}</p>
-          </div>
-        )}
-
         {empty ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            <h2 className="mb-2 text-2xl font-semibold tracking-tight">Hôm nay bạn muốn hỏi gì?</h2>
-            <p className="mb-8 text-sm text-zinc-500">Bắt đầu bằng một câu hỏi, hoặc chọn một gợi ý</p>
-            <div className="grid w-full max-w-2xl gap-2 sm:grid-cols-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => void send(s)}
-                  className="rounded-xl border border-zinc-200 px-4 py-3 text-left text-sm text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                >
-                  {s}
-                </button>
-              ))}
+          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8">
+            <Logo size={64} />
+            <h2 className="mt-6 mb-3 text-center text-3xl font-semibold tracking-tight">{t('greeting', { name: user?.displayName })}</h2>
+            <p className="mb-10 max-w-md text-center text-sm leading-relaxed text-slate-500 dark:text-slate-400">{t('intro')}</p>
+            <div className="grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+              {SUGGESTIONS.map((s) => {
+                const prompt = t(`suggestions.${s.id}.prompt`)
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => void send(prompt)}
+                    title={prompt}
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-night-700 dark:bg-night-850 dark:hover:border-indigo-500/50"
+                  >
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.tint}`}>{s.icon}</span>
+                    <span className="leading-snug">
+                      <span className="block text-slate-800 dark:text-slate-100">{t(`suggestions.${s.id}.title`)}</span>
+                      <span className="block text-slate-500 dark:text-slate-400">{t(`suggestions.${s.id}.subtitle`)}</span>
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         ) : messagesLoading ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">Đang tải tin nhắn…</div>
+          <div className="flex flex-1 items-center justify-center text-sm text-slate-500">{t('loadingMessages')}</div>
         ) : (
           <MessageList messages={messages} />
         )}

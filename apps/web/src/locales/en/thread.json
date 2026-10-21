@@ -1,0 +1,14 @@
+{
+  "placeholder": "Type your message…",
+  "inputLabel": "Message",
+  "hint": "Enter to send · Shift + Enter for a new line · AI can make mistakes",
+  "send": "Send (Enter)",
+  "sendLabel": "Send",
+  "stop": "Stop",
+  "stopped": "Stopped",
+  "typing": "AI is replying",
+  "copyAnswer": "Copy answer",
+  "copied": "Copied",
+  "copyCode": "Copy",
+  "code": "code"
+}

@@ -1,8 +1,19 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+/* dark: bật theo class "dark" trên <html> (nút chuyển theme), không theo media query */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Nền xanh đen cho dark mode */
+  --color-night-950: #0a0e1c;
+  --color-night-900: #0f1426;
+  --color-night-850: #141a30;
+  --color-night-800: #1a2139;
+  --color-night-700: #262e4b;
+  --color-night-600: #343d5f;
 }
 
 html,
@@ -12,5 +23,5 @@ body,
 }
 
 body {
-  @apply bg-white text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  @apply bg-white text-slate-900 antialiased dark:bg-night-900 dark:text-slate-100;
 }

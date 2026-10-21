@@ -1,0 +1,39 @@
+{
+  "checkingAuth": "Đang kiểm tra đăng nhập…",
+  "loadingMessages": "Đang tải tin nhắn…",
+  "conversationFallback": "Cuộc trò chuyện",
+  "thisConversation": "cuộc trò chuyện này",
+  "openConversationList": "Mở danh sách trò chuyện",
+  "openSidebar": "Mở thanh bên",
+  "switchToLight": "Chuyển sang giao diện sáng",
+  "switchToDark": "Chuyển sang giao diện tối",
+  "lightTheme": "Giao diện sáng",
+  "darkTheme": "Giao diện tối",
+  "conversationOptions": "Tuỳ chọn cuộc trò chuyện",
+  "deleteConversation": "Xoá cuộc trò chuyện",
+  "confirmDelete": "Xoá \"{{title}}\"?",
+  "greeting": "Chào {{name}}!",
+  "intro": "Tôi là trợ lý AI của bạn. Hãy bắt đầu cuộc trò chuyện bằng cách đặt câu hỏi hoặc chọn một gợi ý bên dưới.",
+  "suggestions": {
+    "explain": {
+      "title": "Giải thích một khái niệm",
+      "subtitle": "phức tạp theo cách đơn giản",
+      "prompt": "Giải thích Dependency Injection trong Spring bằng ví dụ đời thường"
+    },
+    "code": {
+      "title": "Viết code mẫu",
+      "subtitle": "với giải thích chi tiết",
+      "prompt": "Viết code mẫu một REST controller trong Spring Boot, kèm giải thích từng phần"
+    },
+    "plan": {
+      "title": "Lên kế hoạch học tập",
+      "subtitle": "cá nhân hóa",
+      "prompt": "Lên kế hoạch 4 tuần học Spring Boot cho người đã biết Node.js"
+    },
+    "summarize": {
+      "title": "Tóm tắt tài liệu",
+      "subtitle": "hoặc bài viết",
+      "prompt": "Tóm tắt ngắn gọn JWT gồm những phần nào và vì sao không cần lưu session"
+    }
+  }
+}

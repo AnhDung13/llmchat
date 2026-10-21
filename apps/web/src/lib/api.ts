@@ -1,38 +1,44 @@
 // Các endpoint của backend, khớp với docs/api-contract.md
 
-import { ApiError, json, readBody, request } from './http'
+import type { Options } from 'ky'
+import { ApiError, envelope, json, readBody, request } from './http'
 import { readSse } from './sse'
 import type { ChatEvent, Conversation, LoginInput, LoginResponse, Message, RegisterInput, User } from './types'
 
-const post = (body: unknown): RequestInit => ({ method: 'POST', body: JSON.stringify(body) })
+const post = (body: unknown): Options => ({ method: 'post', json: body })
 
 export const api = {
-  register: (input: RegisterInput) => json<User>('/auth/register', post(input), { auth: false }),
+  /** Trả cả envelope để đọc `message` (vd "auth.registerSuccess") */
+  register: (input: RegisterInput) => envelope<User>('auth/register', post(input), { auth: false }),
 
-  login: (input: LoginInput) => json<LoginResponse>('/auth/login', post(input), { auth: false }),
+  /** Trả cả envelope để đọc `message` (vd "auth.loginSuccess") */
+  login: (input: LoginInput) => envelope<LoginResponse>('auth/login', post(input), { auth: false }),
 
   /** Thu hồi refresh token ở backend */
   logout: async (refreshToken: string) => {
-    await request('/auth/logout', post({ refreshToken }), { auth: false })
+    await request('auth/logout', post({ refreshToken }), { auth: false })
   },
 
-  me: () => json<User>('/me'),
+  me: (signal?: AbortSignal) => json<User>('me', { signal }),
 
-  listConversations: () => json<Conversation[]>('/conversations'),
+  listConversations: (signal?: AbortSignal) => json<Conversation[]>('conversations', { signal }),
 
-  createConversation: (title?: string) => json<Conversation>('/conversations', post(title ? { title } : {})),
+  createConversation: (title?: string) => json<Conversation>('conversations', post(title ? { title } : {})),
 
   deleteConversation: async (id: number) => {
-    await request(`/conversations/${id}`, { method: 'DELETE' })
+    await request(`conversations/${id}`, { method: 'delete' })
   },
 
-  listMessages: (conversationId: number) => json<Message[]>(`/conversations/${conversationId}/messages`),
+  listMessages: (conversationId: number, signal?: AbortSignal) =>
+    json<Message[]>(`conversations/${conversationId}/messages`, { signal }),
 
   async *sendMessage(conversationId: number, content: string, signal: AbortSignal): AsyncGenerator<ChatEvent> {
-    const res = await request(`/conversations/${conversationId}/messages`, {
+    const res = await request(`conversations/${conversationId}/messages`, {
       ...post({ content }),
       headers: { Accept: 'text/event-stream, application/json' },
       signal,
+      // LLM có thể trả lời lâu: không giới hạn thời gian chờ
+      timeout: false,
     })
 
     // Kiểu A: backend trả JSON một lần
@@ -43,7 +49,7 @@ export const api = {
     }
 
     // Kiểu B: SSE
-    if (!res.body) throw new ApiError(0, 'Trình duyệt không đọc được stream')
+    if (!res.body) throw new ApiError(0, 'errors.streamUnsupported')
     for await (const ev of readSse(res.body)) {
       if (ev.event === 'delta') {
         yield { type: 'delta', text: (JSON.parse(ev.data) as { text: string }).text }
@@ -51,9 +57,10 @@ export const api = {
         yield { type: 'done', message: JSON.parse(ev.data) as Message }
         return
       } else if (ev.event === 'error') {
-        throw new ApiError(502, (JSON.parse(ev.data) as { message: string }).message)
+        // `message` có thể là message key (vd "llm.failed") hoặc câu chữ thô
+        throw new ApiError(502, (JSON.parse(ev.data) as { message?: string }).message ?? '')
       }
     }
-    throw new ApiError(0, 'Stream kết thúc mà không có event "done"')
+    throw new ApiError(0, 'errors.streamNoDone')
   },
 }

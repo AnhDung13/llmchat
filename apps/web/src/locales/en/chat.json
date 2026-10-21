@@ -1,0 +1,39 @@
+{
+  "checkingAuth": "Checking your session…",
+  "loadingMessages": "Loading messages…",
+  "conversationFallback": "Conversation",
+  "thisConversation": "this conversation",
+  "openConversationList": "Open conversation list",
+  "openSidebar": "Open sidebar",
+  "switchToLight": "Switch to light mode",
+  "switchToDark": "Switch to dark mode",
+  "lightTheme": "Light mode",
+  "darkTheme": "Dark mode",
+  "conversationOptions": "Conversation options",
+  "deleteConversation": "Delete conversation",
+  "confirmDelete": "Delete \"{{title}}\"?",
+  "greeting": "Hi {{name}}!",
+  "intro": "I'm your AI assistant. Start a conversation by asking a question or picking a suggestion below.",
+  "suggestions": {
+    "explain": {
+      "title": "Explain a concept",
+      "subtitle": "complex ideas made simple",
+      "prompt": "Explain Dependency Injection in Spring with an everyday analogy"
+    },
+    "code": {
+      "title": "Write sample code",
+      "subtitle": "with a detailed explanation",
+      "prompt": "Write a sample REST controller in Spring Boot and explain each part"
+    },
+    "plan": {
+      "title": "Make a study plan",
+      "subtitle": "tailored to you",
+      "prompt": "Make a 4-week Spring Boot study plan for someone who already knows Node.js"
+    },
+    "summarize": {
+      "title": "Summarize a document",
+      "subtitle": "or an article",
+      "prompt": "Briefly summarize the parts of a JWT and why it doesn't need a server-side session"
+    }
+  }
+}

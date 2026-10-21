@@ -1,0 +1,30 @@
+{
+  "auth": {
+    "loginSuccess": "Đăng nhập thành công",
+    "registerSuccess": "Tạo tài khoản thành công",
+    "logoutSuccess": "Đã đăng xuất",
+    "emailAlreadyExists": "Email đã được đăng ký",
+    "invalidCredentials": "Email hoặc mật khẩu không đúng",
+    "invalidRefreshToken": "Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+    "unauthorized": "Bạn cần đăng nhập"
+  },
+  "validation": {
+    "failed": "Dữ liệu không hợp lệ",
+    "required": "Vui lòng nhập đầy đủ thông tin",
+    "emailInvalid": "Email không hợp lệ",
+    "passwordTooShort": "Mật khẩu phải có ít nhất 8 ký tự",
+    "displayNameTooLong": "Tên hiển thị tối đa 50 ký tự",
+    "malformedJson": "Dữ liệu gửi lên không đúng định dạng JSON"
+  },
+  "conversation": {
+    "notFound": "Không tìm thấy cuộc trò chuyện"
+  },
+  "llm": {
+    "failed": "AI không phản hồi, vui lòng thử lại"
+  },
+  "error": {
+    "notFound": "Không tìm thấy",
+    "methodNotAllowed": "Phương thức không được hỗ trợ",
+    "internal": "Lỗi hệ thống, vui lòng thử lại sau"
+  }
+}

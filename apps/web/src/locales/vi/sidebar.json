@@ -1,0 +1,15 @@
+{
+  "collapse": "Thu gọn thanh bên",
+  "newChat": "Cuộc trò chuyện mới",
+  "history": "Lịch sử trò chuyện",
+  "conversations": "Cuộc trò chuyện",
+  "loading": "Đang tải…",
+  "empty": "Chưa có cuộc trò chuyện nào",
+  "optionsFor": "Tuỳ chọn cho {{title}}",
+  "delete": "Xoá",
+  "confirmDelete": "Xoá \"{{title}}\"?",
+  "settings": "Cài đặt",
+  "lightMode": "Giao diện sáng",
+  "darkMode": "Giao diện tối",
+  "logout": "Đăng xuất"
+}

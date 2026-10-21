@@ -5,8 +5,10 @@ export type AuthState = {
   user: User | null
   /** true trong lúc kiểm tra token đã lưu khi mở trang */
   loading: boolean
-  login(input: LoginInput): Promise<void>
-  register(input: RegisterInput): Promise<void>
+  /** Trả về message key backend gửi kèm (vd "auth.loginSuccess"), null nếu không có */
+  login(input: LoginInput): Promise<string | null>
+  /** Trả về message key của bước đăng ký (vd "auth.registerSuccess"), null nếu không có */
+  register(input: RegisterInput): Promise<string | null>
   logout(): void
 }
 

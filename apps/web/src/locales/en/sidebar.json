@@ -1,0 +1,15 @@
+{
+  "collapse": "Collapse sidebar",
+  "newChat": "New chat",
+  "history": "Chat history",
+  "conversations": "Conversations",
+  "loading": "Loading…",
+  "empty": "No conversations yet",
+  "optionsFor": "Options for {{title}}",
+  "delete": "Delete",
+  "confirmDelete": "Delete \"{{title}}\"?",
+  "settings": "Settings",
+  "lightMode": "Light mode",
+  "darkMode": "Dark mode",
+  "logout": "Sign out"
+}

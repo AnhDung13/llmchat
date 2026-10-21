@@ -1,8 +1,13 @@
-// Gọi API backend: gắn Authorization: Bearer, mở envelope { status, message, data },
+// Gọi API backend bằng ky: gắn Authorization: Bearer, mở envelope { status, message, data },
 // tự gọi POST /api/auth/refresh khi access token hết hạn.
+// Mọi lỗi ra khỏi file này đều là ApiError (trừ AbortError khi người dùng huỷ request).
 
+import ky, { isHTTPError, isNetworkError, isTimeoutError, type KyRequest, type Options } from 'ky'
+import { ApiError } from './errors'
 import { clearSession, getSession, saveSession } from './session'
 import type { ApiEnvelope, TokenResponse } from './types'
+
+export { ApiError } from './errors'
 
 /**
  * Trình duyệt luôn gọi /api trên cùng origin với Vite.
@@ -13,14 +18,6 @@ const BACKEND_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8081'
 
 /** Làm mới sớm hơn hạn thật một chút, để token không hết hạn giữa đường. */
 const EXPIRY_SKEW_MS = 30_000
-
-export class ApiError extends Error {
-  readonly status: number
-  constructor(status: number, message: string) {
-    super(message)
-    this.status = status
-  }
-}
 
 let onSessionExpired: () => void = () => {}
 
@@ -34,33 +31,61 @@ function expireSession() {
   onSessionExpired()
 }
 
+/** Dữ liệu riêng của mình truyền cho hook của ky qua option `context` */
+type RequestContext = {
+  /** false cho các endpoint không cần đăng nhập (login, register, refresh, logout) */
+  auth?: boolean
+  /** Token vừa làm mới, dùng thay cho token trong session khi gửi lại request */
+  token?: string
+}
+
+const client = ky.create({
+  prefix: API_BASE,
+  headers: { Accept: 'application/json' },
+  // TanStack Query lo việc thử lại; ở đây không tự retry để tránh gửi tin nhắn hai lần
+  retry: 0,
+  hooks: {
+    beforeRequest: [
+      async ({ request, options }) => {
+        const ctx = options.context as RequestContext
+        if (ctx.auth === false) return
+        const token = ctx.token ?? (await getFreshAccessToken())
+        if (token) request.headers.set('Authorization', `Bearer ${token}`)
+      },
+    ],
+  },
+})
+
 type RequestOptions = {
   /** false cho các endpoint không cần đăng nhập (login, register, refresh, logout) */
   auth?: boolean
 }
 
-export async function request(path: string, init: RequestInit = {}, { auth = true }: RequestOptions = {}): Promise<Response> {
-  let token = auth ? await getFreshAccessToken() : null
-  let res = await send(path, init, token)
-
-  // Token bị từ chối (ví dụ backend khởi động lại với khoá JWT khác) → thử làm mới một lần rồi gửi lại
-  if (res.status === 401 && token) {
-    token = await refreshAccessToken(token)
-    if (token) res = await send(path, init, token)
+export async function request(path: string, options: Options = {}, { auth = true }: RequestOptions = {}): Promise<Response> {
+  try {
+    try {
+      return await client(path, { ...options, context: { auth } satisfies RequestContext })
+    } catch (err) {
+      // Token bị từ chối (ví dụ backend khởi động lại với khoá JWT khác) → thử làm mới một lần rồi gửi lại
+      const stale = auth && isHTTPError(err) && err.response.status === 401 ? bearerToken(err.request) : null
+      if (!stale) throw err
+      const token = await refreshAccessToken(stale)
+      if (!token) throw err
+      return await client(path, { ...options, context: { auth, token } satisfies RequestContext })
+    }
+  } catch (err) {
+    throw toApiError(err, auth)
   }
-
-  if (!res.ok) {
-    const message = await readProblem(res)
-    // 401 ở endpoint không cần đăng nhập (ví dụ sai mật khẩu) không có nghĩa là phiên hết hạn
-    if (res.status === 401 && auth) expireSession()
-    throw new ApiError(res.status, message)
-  }
-  return res
 }
 
-export async function json<T>(path: string, init?: RequestInit, options?: RequestOptions): Promise<T> {
-  const res = await request(path, init, options)
-  return readBody<T>(res)
+/** Cả envelope, khi cần đọc thêm `message` (ví dụ "auth.loginSuccess" lúc đăng nhập) */
+export async function envelope<T>(path: string, options?: Options, requestOptions?: RequestOptions): Promise<ApiEnvelope<T>> {
+  const res = await request(path, options, requestOptions)
+  return (await res.json()) as ApiEnvelope<T>
+}
+
+export async function json<T>(path: string, options?: Options, requestOptions?: RequestOptions): Promise<T> {
+  return (await envelope<T>(path, options, requestOptions)).data
 }
 
 /** Lấy dữ liệu thật trong field `data` của envelope */
@@ -68,17 +93,8 @@ export async function readBody<T>(res: Response): Promise<T> {
   return ((await res.json()) as ApiEnvelope<T>).data
 }
 
-async function send(path: string, init: RequestInit, token: string | null): Promise<Response> {
-  const headers = new Headers(init.headers)
-  if (init.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
-  if (!headers.has('Accept')) headers.set('Accept', 'application/json')
-  if (token) headers.set('Authorization', `Bearer ${token}`)
-  try {
-    return await fetch(`${API_BASE}${path}`, { ...init, headers })
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') throw err
-    throw new ApiError(0, `Không kết nối được tới backend (${BACKEND_URL}). Spring Boot đã chạy chưa?`)
-  }
+function bearerToken(req: KyRequest): string | null {
+  return req.headers.get('Authorization')?.replace(/^Bearer /, '') ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -121,7 +137,16 @@ async function doRefresh(staleToken: string): Promise<string | null> {
   }
   if (!session.refreshToken) return null
 
-  const res = await send('/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken: session.refreshToken }) }, null)
+  let res: Response
+  try {
+    res = await client.post('auth/refresh', {
+      json: { refreshToken: session.refreshToken },
+      context: { auth: false } satisfies RequestContext,
+      throwHttpErrors: false,
+    })
+  } catch (err) {
+    throw toApiError(err, false)
+  }
   if (res.status === 400 || res.status === 401) {
     // Refresh token hết hạn, đã bị thu hồi hoặc backend chưa có endpoint này
     clearSession()
@@ -129,7 +154,7 @@ async function doRefresh(staleToken: string): Promise<string | null> {
   }
   if (!res.ok) {
     // Lỗi server hoặc mạng: giữ phiên, lần sau thử lại
-    throw new ApiError(res.status, await readProblem(res))
+    throw new ApiError(res.status, readMessage(await res.json().catch(() => undefined)))
   }
 
   const tokens = await readBody<TokenResponse>(res)
@@ -140,31 +165,30 @@ async function doRefresh(staleToken: string): Promise<string | null> {
 // ---------------------------------------------------------------------------
 // Lỗi
 
-/**
- * Đọc thông báo lỗi: ưu tiên `message` của envelope.
- * Vẫn đọc được Problem Details (`detail`/`title`) phòng khi một lỗi nào đó của Spring chưa được bọc envelope.
- */
-async function readProblem(res: Response): Promise<string> {
-  const fallback = defaultMessage(res.status)
-  try {
-    const text = await res.text()
-    if (!text) return fallback
-    const body = JSON.parse(text) as { message?: string | null; detail?: string; title?: string }
-    return body.message || body.detail || body.title || fallback
-  } catch {
-    return fallback
+function toApiError(err: unknown, auth: boolean): unknown {
+  if (err instanceof ApiError) return err
+  if (err instanceof DOMException && err.name === 'AbortError') return err
+  if (isHTTPError(err)) {
+    const status = err.response.status
+    // 401 ở endpoint không cần đăng nhập (ví dụ sai mật khẩu) không có nghĩa là phiên hết hạn
+    if (status === 401 && auth) {
+      expireSession()
+      return new ApiError(401, 'errors.sessionExpired')
+    }
+    return new ApiError(status, readMessage(err.data))
   }
+  if (isNetworkError(err)) return new ApiError(0, 'errors.network', { url: BACKEND_URL })
+  if (isTimeoutError(err)) return new ApiError(504, '')
+  return err
 }
 
-function defaultMessage(status: number): string {
-  switch (status) {
-    case 400: return 'Dữ liệu không hợp lệ'
-    case 401: return 'Bạn cần đăng nhập'
-    case 403: return 'Bạn không có quyền làm việc này'
-    case 404: return 'Không tìm thấy (backend đã có endpoint này chưa?)'
-    case 409: return 'Dữ liệu bị trùng'
-    case 500: return 'Lỗi server – xem log của Spring Boot'
-    case 502: case 503: case 504: return 'Backend chưa chạy hoặc gọi LLM thất bại'
-    default: return `Lỗi ${status}`
-  }
+/**
+ * Đọc thông báo lỗi: ưu tiên `message` của envelope (message key hoặc câu chữ thô).
+ * Vẫn đọc được Problem Details (`detail`/`title`) phòng khi một lỗi nào đó của Spring chưa được bọc envelope.
+ * Rỗng → errorMessage() dùng câu mặc định theo HTTP status (locales/common.json).
+ */
+function readMessage(data: unknown): string {
+  if (typeof data !== 'object' || data === null) return ''
+  const body = data as { message?: string | null; detail?: string; title?: string }
+  return body.message || body.detail || body.title || ''
 }

@@ -1,0 +1,14 @@
+{
+  "placeholder": "Nhập tin nhắn của bạn…",
+  "inputLabel": "Tin nhắn",
+  "hint": "Enter để gửi · Shift + Enter để xuống dòng · AI có thể trả lời sai",
+  "send": "Gửi (Enter)",
+  "sendLabel": "Gửi",
+  "stop": "Dừng",
+  "stopped": "Đã dừng",
+  "typing": "AI đang trả lời",
+  "copyAnswer": "Chép câu trả lời",
+  "copied": "Đã chép",
+  "copyCode": "Copy",
+  "code": "code"
+}
