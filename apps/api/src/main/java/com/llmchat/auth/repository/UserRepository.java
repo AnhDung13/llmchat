@@ -43,12 +43,12 @@ public class UserRepository {
 
     }
 
-    public User findById(UUID id) {
+    public Optional<User> findById(UUID id) {
         String sql = "SELECT id, email, display_name, created_at FROM users WHERE id = :id";
         return jdbcClient.sql(sql)
                 .param("id", id)
                 .query(UserRepository::mapRow)
-                .single();
+                .optional();
     }
 
     private static User mapRow(ResultSet rs, int rowNum) throws SQLException {

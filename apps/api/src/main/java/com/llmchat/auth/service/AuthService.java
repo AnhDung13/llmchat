@@ -7,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.llmchat.auth.dto.LoginRequest;
 import com.llmchat.auth.dto.LoginResponse;
-import com.llmchat.auth.dto.RegisterRequest;
 import com.llmchat.auth.dto.RefreshRequest;
+import com.llmchat.auth.dto.RegisterRequest;
 import com.llmchat.auth.dto.TokenResponse;
 import com.llmchat.auth.model.User;
 import com.llmchat.auth.model.UserCredentials;
@@ -18,12 +18,15 @@ import com.llmchat.exception.AppException;
 @Service
 public class AuthService {
     private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokenService;
 
-    public AuthService(PasswordEncoder passwordEncoder, UserRepository userRepository, TokenService tokenService) {
-        this.passwordEncoder = passwordEncoder;
+    public AuthService(UserRepository userRepository, UserService userService, PasswordEncoder passwordEncoder,
+            TokenService tokenService) {
         this.userRepository = userRepository;
+        this.userService = userService;
+        this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
     }
 
@@ -36,7 +39,7 @@ public class AuthService {
 
     @Transactional
     public TokenResponse refresh(RefreshRequest req) {
-        User user = userRepository.findById(tokenService.consumeRefreshToken(req.refreshToken()));
+        User user = userService.getUserById(tokenService.consumeRefreshToken(req.refreshToken()));
         String accessToken = tokenService.createAccessToken(user);
         String refreshToken = tokenService.createRefreshToken(user.id());
         return new TokenResponse(accessToken, "Bearer", tokenService.getAccessTtlSeconds(), refreshToken);
