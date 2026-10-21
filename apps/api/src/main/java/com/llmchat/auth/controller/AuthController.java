@@ -8,9 +8,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.llmchat.auth.dto.LoginRequest;
+import com.llmchat.auth.dto.LoginResponse;
 import com.llmchat.auth.dto.RefreshRequest;
 import com.llmchat.auth.dto.RegisterRequest;
-import com.llmchat.auth.model.User;
+import com.llmchat.auth.dto.TokenResponse;
 import com.llmchat.auth.service.AuthService;
 import com.llmchat.common.ApiResponse;
 
@@ -27,22 +28,21 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public void login(@Valid @RequestBody LoginRequest loginRequest) {
-
-        return;
+    public ApiResponse<LoginResponse> login(@Valid @RequestBody LoginRequest loginRequest) {
+        LoginResponse loginResponse = authService.login(loginRequest);
+        return ApiResponse.success(HttpStatus.OK, "Login Success", loginResponse);
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<User>> register(@Valid @RequestBody RegisterRequest registerRequest) {
-        User user = authService.registerUser(registerRequest);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(HttpStatus.CREATED, user));
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest registerRequest) {
+        authService.register(registerRequest);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(HttpStatus.CREATED, "Create Success", null));
     }
 
     @PostMapping("/refresh")
-    public String refresh(@Valid @RequestBody RefreshRequest refreshRequest) {
-        // TODO: process POST request
-
-        return "";
+    public ApiResponse<TokenResponse> refresh(@Valid @RequestBody RefreshRequest refreshRequest) {
+        return ApiResponse.success(HttpStatus.OK, null, authService.refresh(refreshRequest));
     }
 
     @PostMapping("/logout")

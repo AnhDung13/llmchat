@@ -1,0 +1,80 @@
+package com.llmchat.auth.service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Base64;
+import java.util.UUID;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoder;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.stereotype.Service;
+
+import com.llmchat.auth.model.User;
+import com.llmchat.auth.repository.RefreshTokenRepository;
+import com.llmchat.exception.AppException;
+
+@Service
+public class TokenService {
+    private final JwtEncoder jwtEncoder;
+    private final Duration accessTtl;
+    private final Duration refreshTtl;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final SecureRandom secureRandom = new SecureRandom();
+
+    public TokenService(JwtEncoder jwtEncoder, RefreshTokenRepository refreshTokenRepository,
+            @Value("${app.jwt.access-ttl}") Duration accessTtl,
+            @Value("${app.jwt.refresh-ttl}") Duration refreshTtl) {
+        this.jwtEncoder = jwtEncoder;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.accessTtl = accessTtl;
+        this.refreshTtl = refreshTtl;
+    }
+
+    public long getAccessTtlSeconds() {
+        return accessTtl.getSeconds();
+    }
+
+    public String createAccessToken(User user) {
+        Instant now = Instant.now();
+        JwtClaimsSet claims = JwtClaimsSet.builder().subject(user.id().toString()).claim("name", user.displayName())
+                .issuedAt(now)
+                .expiresAt(now.plus(accessTtl)).build();
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return jwtEncoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue();
+    }
+
+    public String createRefreshToken(UUID userId) {
+        byte[] randomBytes = new byte[32];
+        secureRandom.nextBytes(randomBytes);
+        String token = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+        refreshTokenRepository.insertRefreshToken(userId, hashToken(token),
+                Timestamp.from(Instant.now().plus(refreshTtl)));
+        return token;
+    }
+
+    public UUID consumeRefreshToken(String token) {
+        return refreshTokenRepository.consumeRefreshToken(hashToken(token))
+                .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token"));
+    }
+
+    private String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashedBytes = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hashedBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+}

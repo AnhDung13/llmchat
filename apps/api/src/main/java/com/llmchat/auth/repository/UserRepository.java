@@ -2,12 +2,14 @@ package com.llmchat.auth.repository;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
 import com.llmchat.auth.model.User;
+import com.llmchat.auth.model.UserCredentials;
 
 @Repository
 public class UserRepository {
@@ -22,16 +24,29 @@ public class UserRepository {
         return jdbcClient.sql(sql).param("email", email).query(Boolean.class).single();
     }
 
-    public User insertUser(String email, String passwordHash, String displayName) {
+    public Optional<UserCredentials> findCredentialsByEmail(String email) {
+        String sql = "SELECT id, email, display_name, created_at, password_hash FROM users WHERE email = :email";
+        return jdbcClient.sql(sql).param("email", email)
+                .query((rs, rowNum) -> new UserCredentials(mapRow(rs, rowNum), rs.getString("password_hash")))
+                .optional();
+    }
+
+    public void insertUser(String email, String passwordHash, String displayName) {
         String sql = """
                 INSERT INTO users (email, password_hash, display_name)
                 VALUES (:email, :passwordHash, :displayName)
-                RETURNING id, email, password_hash, display_name, created_at
                 """;
-        return jdbcClient.sql(sql)
+        jdbcClient.sql(sql)
                 .param("email", email)
                 .param("passwordHash", passwordHash)
-                .param("displayName", displayName)
+                .param("displayName", displayName).update();
+
+    }
+
+    public User findById(UUID id) {
+        String sql = "SELECT id, email, display_name, created_at FROM users WHERE id = :id";
+        return jdbcClient.sql(sql)
+                .param("id", id)
                 .query(UserRepository::mapRow)
                 .single();
     }
@@ -40,7 +55,6 @@ public class UserRepository {
         return new User(
                 rs.getObject("id", UUID.class),
                 rs.getString("email"),
-                rs.getString("password_hash"),
                 rs.getString("display_name"),
                 rs.getTimestamp("created_at").toInstant());
     }
