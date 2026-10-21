@@ -1,8 +1,8 @@
-// Gọi API backend: gắn Authorization: Bearer, đọc lỗi Problem Details,
+// Gọi API backend: gắn Authorization: Bearer, mở envelope { status, message, data },
 // tự gọi POST /api/auth/refresh khi access token hết hạn.
 
 import { clearSession, getSession, saveSession } from './session'
-import type { TokenResponse } from './types'
+import type { ApiEnvelope, TokenResponse } from './types'
 
 /**
  * Trình duyệt luôn gọi /api trên cùng origin với Vite.
@@ -60,7 +60,12 @@ export async function request(path: string, init: RequestInit = {}, { auth = tru
 
 export async function json<T>(path: string, init?: RequestInit, options?: RequestOptions): Promise<T> {
   const res = await request(path, init, options)
-  return (await res.json()) as T
+  return readBody<T>(res)
+}
+
+/** Lấy dữ liệu thật trong field `data` của envelope */
+export async function readBody<T>(res: Response): Promise<T> {
+  return ((await res.json()) as ApiEnvelope<T>).data
 }
 
 async function send(path: string, init: RequestInit, token: string | null): Promise<Response> {
@@ -127,7 +132,7 @@ async function doRefresh(staleToken: string): Promise<string | null> {
     throw new ApiError(res.status, await readProblem(res))
   }
 
-  const tokens = (await res.json()) as TokenResponse
+  const tokens = await readBody<TokenResponse>(res)
   saveSession(tokens, session.refreshToken)
   return tokens.accessToken
 }
@@ -135,14 +140,17 @@ async function doRefresh(staleToken: string): Promise<string | null> {
 // ---------------------------------------------------------------------------
 // Lỗi
 
-/** Đọc lỗi dạng Problem Details (RFC 9457) mà Spring trả về. */
+/**
+ * Đọc thông báo lỗi: ưu tiên `message` của envelope.
+ * Vẫn đọc được Problem Details (`detail`/`title`) phòng khi một lỗi nào đó của Spring chưa được bọc envelope.
+ */
 async function readProblem(res: Response): Promise<string> {
   const fallback = defaultMessage(res.status)
   try {
     const text = await res.text()
     if (!text) return fallback
-    const body = JSON.parse(text) as { detail?: string; title?: string; message?: string }
-    return body.detail || body.message || body.title || fallback
+    const body = JSON.parse(text) as { message?: string | null; detail?: string; title?: string }
+    return body.message || body.detail || body.title || fallback
   } catch {
     return fallback
   }

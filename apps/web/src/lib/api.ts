@@ -1,6 +1,6 @@
 // Các endpoint của backend, khớp với docs/api-contract.md
 
-import { ApiError, json, request } from './http'
+import { ApiError, json, readBody, request } from './http'
 import { readSse } from './sse'
 import type { ChatEvent, Conversation, LoginInput, LoginResponse, Message, RegisterInput, User } from './types'
 
@@ -37,7 +37,7 @@ export const api = {
 
     // Kiểu A: backend trả JSON một lần
     if (!res.headers.get('Content-Type')?.includes('text/event-stream')) {
-      const body = (await res.json()) as { assistantMessage: Message }
+      const body = await readBody<{ assistantMessage: Message }>(res)
       yield { type: 'done', message: body.assistantMessage }
       return
     }
