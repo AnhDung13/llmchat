@@ -1,7 +1,16 @@
 // Khớp với docs/api-contract.md
 
+/** Mọi response JSON của backend (cả thành công lẫn lỗi) đều bọc trong envelope này */
+export type ApiEnvelope<T> = {
+  status: number
+  /** null khi thành công */
+  message: string | null
+  data: T
+}
+
 export type User = {
-  id: number
+  /** UUID */
+  id: string
   email: string
   displayName: string
   createdAt: string

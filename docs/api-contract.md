@@ -8,9 +8,12 @@ giao diện sẽ chạy mà không phải sửa gì phía web.
   (xem `apps/web/vite.config.ts`), nên **không cần cấu hình CORS** lúc dev.
 - Body request/response là JSON (`Content-Type: application/json`),
   trừ endpoint stream ở bước 6.
+- **Mọi response JSON đều bọc trong envelope** (xem [Envelope](#envelope)). Khi tài liệu ghi
+  "Response `200 OK`: một `User`" thì `User` nằm trong field `body` của envelope.
 - Thời gian là chuỗi ISO-8601 UTC, ví dụ `"2026-10-19T09:30:00Z"`
   (kiểu `java.time.Instant` của Java serialize ra đúng dạng này).
-- `id` là số nguyên (`BIGINT` tự tăng trong DB, `long` trong Java).
+- `id` của user là UUID dạng chuỗi (`UUID` trong DB, `java.util.UUID` trong Java).
+  Các `id` khác là số nguyên (`BIGINT` tự tăng trong DB, `long` trong Java).
 
 ## Xác thực
 
@@ -23,29 +26,54 @@ Authorization: Bearer <accessToken>
 Thiếu token, token sai hoặc token hết hạn → `401`. Khi nhận `401`, frontend gọi `POST /api/auth/refresh`
 một lần rồi gửi lại request. Refresh cũng thất bại thì frontend đăng xuất và đưa người dùng về trang đăng nhập.
 
-## Lỗi
+## Envelope
 
-Trả lỗi theo chuẩn **Problem Details** (RFC 9457). Spring hỗ trợ sẵn qua lớp `ProblemDetail`.
+Mọi response JSON, cả thành công lẫn lỗi, có cùng một dạng:
 
 ```json
-{ "type": "about:blank", "title": "Conflict", "status": 409, "detail": "Email đã được đăng ký" }
+{
+  "statusCode": 201,
+  "responseCode": "SUCCESS",
+  "errorMessage": null,
+  "body": { "id": "3f2b8c1e-...", "email": "an@example.com", "displayName": "An", "createdAt": "..." }
+}
 ```
 
-Frontend hiển thị `detail`, không có thì hiển thị `title`.
-
-| Mã | Khi nào |
+| Field | Ý nghĩa |
 |---|---|
-| 400 | Dữ liệu không hợp lệ (validation) |
-| 401 | Chưa đăng nhập, sai mật khẩu, token không hợp lệ |
-| 404 | Không tìm thấy, **hoặc** conversation không thuộc về user đang đăng nhập |
-| 409 | Email đã tồn tại |
-| 502 | Gọi LLM thất bại |
+| `statusCode` | Trùng với HTTP status của response. Frontend dựa vào **HTTP status**, field này chỉ để đọc cho tiện |
+| `responseCode` | Mã dạng chữ, xem bảng dưới |
+| `errorMessage` | `null` khi thành công. Khi lỗi: câu thông báo cho người dùng, frontend hiển thị nguyên văn |
+| `body` | Dữ liệu thật khi thành công. `null` khi lỗi hoặc khi endpoint không có dữ liệu trả về (logout, xoá) |
+
+Ví dụ lỗi:
+
+```json
+{ "statusCode": 409, "responseCode": "EMAIL_ALREADY_EXISTS", "errorMessage": "Email đã được đăng ký", "body": null }
+```
+
+## Lỗi
+
+HTTP status vẫn phải đúng mã lỗi (không trả `200` cho lỗi). `responseCode` tương ứng:
+
+| HTTP | `responseCode` | Khi nào |
+|---|---|---|
+| 2xx | `SUCCESS` | Thành công |
+| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ (validation) |
+| 401 | `UNAUTHORIZED` | Chưa đăng nhập, sai mật khẩu, token không hợp lệ |
+| 404 | `NOT_FOUND` | Không tìm thấy, **hoặc** conversation không thuộc về user đang đăng nhập |
+| 409 | `EMAIL_ALREADY_EXISTS` | Email đã tồn tại |
+| 500 | `INTERNAL_ERROR` | Lỗi không lường trước |
+| 502 | `LLM_ERROR` | Gọi LLM thất bại |
+
+Frontend hiển thị `errorMessage`. Nếu response lỗi không có envelope (ví dụ lỗi Spring chưa được bọc),
+frontend vẫn đọc được `detail`/`title` của Problem Details, không có nữa thì dùng câu mặc định theo HTTP status.
 
 ## Kiểu dữ liệu
 
 ```ts
 type User = {
-  id: number
+  id: string          // UUID
   email: string
   displayName: string
   createdAt: string
@@ -104,7 +132,7 @@ Response `200 OK`:
   "tokenType": "Bearer",
   "expiresIn": 900,
   "refreshToken": "x7Kp2v...",
-  "user": { "id": 1, "email": "an@example.com", "displayName": "An", "createdAt": "..." }
+  "user": { "id": "3f2b8c1e-9a4d-4e7b-8c21-5d6f0a1b2c3d", "email": "an@example.com", "displayName": "An", "createdAt": "..." }
 }
 ```
 
@@ -165,7 +193,7 @@ Request:
 { "refreshToken": "x7Kp2v..." }
 ```
 
-Response `204 No Content`: thu hồi refresh token đó. Token không tồn tại cũng trả `204`.
+Response `200 OK`, `body: null`: thu hồi refresh token đó. Token không tồn tại cũng trả `200`.
 Frontend đã tự xoá token phía trình duyệt, endpoint này chỉ để refresh token không dùng lại được nữa.
 
 ### Gợi ý phía backend
@@ -178,7 +206,7 @@ Frontend đã tự xoá token phía trình duyệt, endpoint này chỉ để re
 ```sql
 CREATE TABLE refresh_tokens (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id     BIGINT      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash  VARCHAR(64) NOT NULL UNIQUE,
     expires_at  TIMESTAMPTZ NOT NULL,
     revoked_at  TIMESTAMPTZ,
@@ -208,7 +236,7 @@ Response `201 Created`: `Conversation`. Không có `title` thì dùng `"Cuộc t
 
 ### `DELETE /api/conversations/{id}`
 
-Response `204 No Content`. Xoá luôn các tin nhắn của conversation đó. `404` nếu không thuộc user hiện tại.
+Response `200 OK`, `body: null`. Xoá luôn các tin nhắn của conversation đó. `404` nếu không thuộc user hiện tại.
 
 ### `GET /api/conversations/{id}/messages`
 
@@ -241,7 +269,8 @@ Việc backend phải làm:
 
 #### Kiểu B — SSE stream (bước 6)
 
-`200 OK`, `Content-Type: text/event-stream`. Mỗi event có dạng `event:` + `data:` (JSON) + một dòng trống:
+`200 OK`, `Content-Type: text/event-stream`. Stream **không** bọc envelope: mỗi `data:` là JSON trần như dưới đây.
+Lỗi xảy ra **trước khi** stream bắt đầu (ví dụ `404`) vẫn trả JSON có envelope như mọi endpoint khác. Mỗi event có dạng `event:` + `data:` (JSON) + một dòng trống:
 
 ```
 event: delta
