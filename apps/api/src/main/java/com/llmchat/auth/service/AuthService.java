@@ -60,4 +60,8 @@ public class AuthService {
         return new LoginResponse(accessToken, "Bearer", tokenService.getAccessTtlSeconds(), refreshToken,
                 userCredentials.user());
     }
+
+    public void logout(String token) {
+        tokenService.revokeRefreshToken(token);
+    }
 }

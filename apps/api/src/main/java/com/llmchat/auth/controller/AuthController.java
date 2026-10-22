@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.llmchat.auth.dto.LoginRequest;
 import com.llmchat.auth.dto.LoginResponse;
+import com.llmchat.auth.dto.LogoutRequest;
 import com.llmchat.auth.dto.RefreshRequest;
 import com.llmchat.auth.dto.RegisterRequest;
 import com.llmchat.auth.dto.TokenResponse;
@@ -47,10 +48,9 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public void logout(@RequestBody String entity) {
-        // TODO: process POST request
-
-        return;
+    public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest logoutRequest) {
+        authService.logout(logoutRequest.refreshToken());
+        return ResponseEntity.noContent().build();
     }
 
 }

@@ -68,6 +68,11 @@ public class TokenService {
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_REFRESH_TOKEN));
     }
 
+    public void revokeRefreshToken(String token) {
+        String tokenHash = hashToken(token);
+        refreshTokenRepository.consumeRefreshToken(tokenHash);
+    }
+
     private String hashToken(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
