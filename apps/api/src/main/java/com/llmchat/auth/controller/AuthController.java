@@ -20,7 +20,7 @@ import com.llmchat.common.MessageKey;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 public class AuthController {
 
     private final AuthService authService;

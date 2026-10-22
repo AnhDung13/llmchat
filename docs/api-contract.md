@@ -12,8 +12,7 @@ giao diện sẽ chạy mà không phải sửa gì phía web.
   "Response `200 OK`: một `User`" thì `User` nằm trong field `data` của envelope.
 - Thời gian là chuỗi ISO-8601 UTC, ví dụ `"2026-10-19T09:30:00Z"`
   (kiểu `java.time.Instant` của Java serialize ra đúng dạng này).
-- `id` của user là UUID dạng chuỗi (`UUID` trong DB, `java.util.UUID` trong Java).
-  Các `id` khác là số nguyên (`BIGINT` tự tăng trong DB, `long` trong Java).
+- Mọi `id` (user, conversation, message) là UUID dạng chuỗi (`UUID` trong DB, `java.util.UUID` trong Java).
 
 ## Xác thực
 
@@ -73,6 +72,7 @@ Backend **không trả câu chữ viết cứng**. Field `message` chứa một 
 | `validation.emailInvalid` | 400 | Sai định dạng email (`@Email`) |
 | `validation.passwordTooShort` | 400 | Mật khẩu < 8 ký tự |
 | `validation.displayNameTooLong` | 400 | Tên hiển thị > 50 ký tự |
+| `validation.titleTooLong` | 400 | Tiêu đề conversation > 200 ký tự |
 | `validation.malformedJson` | 400 | Body không phải JSON hợp lệ |
 | `conversation.notFound` | 404 | Không tìm thấy, **hoặc** conversation không thuộc về user đang đăng nhập |
 | `llm.failed` | 502 | Gọi LLM thất bại (kể cả event `error` của SSE) |
@@ -99,14 +99,14 @@ type User = {
 }
 
 type Conversation = {
-  id: number
+  id: string          // UUID
   title: string
   createdAt: string
-  updatedAt: string   // cập nhật mỗi khi có tin nhắn mới
+  modifiedAt: string  // cập nhật mỗi khi có tin nhắn mới
 }
 
 type Message = {
-  id: number
+  id: string          // UUID
   role: "user" | "assistant"
   content: string     // assistant trả về Markdown
   createdAt: string
@@ -242,16 +242,35 @@ CREATE TABLE refresh_tokens (
 
 ### `GET /api/conversations`
 
-Response `200 OK`: `Conversation[]` của user hiện tại, **mới nhất trước** (`updatedAt` giảm dần).
+Query (không bắt buộc): `page` (đếm từ `1`, mặc định `1`), `size` (1–25, mặc định `20`).
+Ví dụ: `GET /api/conversations?page=1&size=20`.
+
+Response `200 OK`: `Conversation[]` của user hiện tại, **mới nhất trước** (`modifiedAt` giảm dần).
 
 ### `POST /api/conversations`
 
-Request (có thể là body rỗng `{}`):
+Request:
 ```json
 { "title": "Học Spring" }
 ```
 
-Response `201 Created`: `Conversation`. Không có `title` thì dùng `"Cuộc trò chuyện mới"`.
+- `title`: bắt buộc, 1–200 ký tự. Frontend tạo conversation lúc gửi tin nhắn đầu tiên, gửi `title` theo ngôn ngữ giao diện đang chọn ("Cuộc trò chuyện mới" / "New chat").
+
+Response `201 Created`: `Conversation`.
+
+Lỗi: `400` (`validation.required` khi thiếu `title`, `validation.titleTooLong` khi quá 200 ký tự).
+
+### `PATCH /api/conversations/{id}` — đổi tên
+
+Request:
+```json
+{ "title": "Học Spring Security" }
+```
+
+- `title`: bắt buộc, 1–200 ký tự (validation giống `POST`).
+- **Không** cập nhật `modifiedAt`: đổi tên không làm conversation nhảy lên đầu danh sách, chỉ tin nhắn mới mới làm vậy.
+
+Response `200 OK`: `Conversation` sau khi đổi tên. `404` nếu không thuộc user hiện tại.
 
 ### `DELETE /api/conversations/{id}`
 
@@ -274,15 +293,15 @@ Việc backend phải làm:
 1. Lưu tin nhắn của user.
 2. Lấy lịch sử tin nhắn của conversation, gửi cho LLM.
 3. Lưu câu trả lời của LLM thành tin nhắn `assistant`.
-4. Cập nhật `updatedAt` của conversation. Nếu đây là tin nhắn đầu tiên, nên đặt `title` = khoảng 40 ký tự đầu của tin nhắn.
+4. Cập nhật `modifiedAt` của conversation. (`title` đã có từ lúc tạo conversation, không cần đặt lại.)
 
 #### Kiểu A — JSON, không stream (bước 4–5)
 
 `200 OK`, `Content-Type: application/json`:
 ```json
 {
-  "userMessage":      { "id": 10, "role": "user",      "content": "Spring Boot là gì?", "createdAt": "..." },
-  "assistantMessage": { "id": 11, "role": "assistant", "content": "**Spring Boot** là ...", "createdAt": "..." }
+  "userMessage":      { "id": "9b1c...", "role": "user",      "content": "Spring Boot là gì?", "createdAt": "..." },
+  "assistantMessage": { "id": "c42e...", "role": "assistant", "content": "**Spring Boot** là ...", "createdAt": "..." }
 }
 ```
 
@@ -299,7 +318,7 @@ event: delta
 data: {"text":" Boot** là"}
 
 event: done
-data: {"id":11,"role":"assistant","content":"**Spring Boot** là ...","createdAt":"..."}
+data: {"id":"c42e...","role":"assistant","content":"**Spring Boot** là ...","createdAt":"..."}
 
 ```
 
@@ -322,5 +341,6 @@ Người dùng bấm **Dừng** thì frontend huỷ request (`AbortController`).
 | 2 | `POST /api/auth/register` | Trang đăng ký |
 | 3 | `POST /api/auth/login`, `GET /api/me` | Đăng nhập, vào trang chat (danh sách trống, báo lỗi khi gửi tin) |
 | 4–5 | 4 endpoint conversations/messages, trả kiểu A | Chat đầy đủ, câu trả lời hiện một lần |
+| 4–5 | `PATCH /api/conversations/{id}` | Đổi tên conversation (menu ⋯) |
 | 6 | Gửi tin nhắn trả kiểu B | Chữ hiện dần, nút Dừng |
 | 7 | `POST /api/auth/refresh`, `POST /api/auth/logout` | Không bị đăng xuất sau khi access token hết hạn |

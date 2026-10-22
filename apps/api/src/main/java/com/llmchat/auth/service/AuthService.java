@@ -31,26 +31,26 @@ public class AuthService {
         this.tokenService = tokenService;
     }
 
-    public void register(RegisterRequest req) {
-        if (userRepository.existEmail(req.email())) {
+    public void register(RegisterRequest payload) {
+        if (userRepository.existEmail(payload.email())) {
             throw new AppException(HttpStatus.CONFLICT, MessageKey.EMAIL_ALREADY_EXISTS);
         }
-        userRepository.insertUser(req.email(), passwordEncoder.encode(req.password()), req.displayName());
+        userRepository.insertUser(payload.email(), passwordEncoder.encode(payload.password()), payload.displayName());
     }
 
     @Transactional
-    public TokenResponse refresh(RefreshRequest req) {
-        User user = userService.getUserById(tokenService.consumeRefreshToken(req.refreshToken()));
+    public TokenResponse refresh(RefreshRequest payload) {
+        User user = userService.getUserById(tokenService.consumeRefreshToken(payload.refreshToken()));
         String accessToken = tokenService.createAccessToken(user);
         String refreshToken = tokenService.createRefreshToken(user.id());
         return new TokenResponse(accessToken, "Bearer", tokenService.getAccessTtlSeconds(), refreshToken);
     }
 
-    public LoginResponse login(LoginRequest req) {
-        UserCredentials userCredentials = userRepository.findCredentialsByEmail(req.email())
+    public LoginResponse login(LoginRequest payload) {
+        UserCredentials userCredentials = userRepository.findCredentialsByEmail(payload.email())
                 .orElseThrow(() -> new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_CREDENTIALS));
 
-        if (!passwordEncoder.matches(req.password(), userCredentials.passwordHash())) {
+        if (!passwordEncoder.matches(payload.password(), userCredentials.passwordHash())) {
             throw new AppException(HttpStatus.UNAUTHORIZED, MessageKey.INVALID_CREDENTIALS);
         }
 

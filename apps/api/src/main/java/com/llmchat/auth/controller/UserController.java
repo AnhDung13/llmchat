@@ -12,9 +12,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.llmchat.auth.model.User;
 import com.llmchat.auth.service.UserService;
 import com.llmchat.common.ApiResponse;
+import com.llmchat.common.JwtUtils;
 
 @RestController
-@RequestMapping("/api/me")
+@RequestMapping("/me")
 public class UserController {
     private final UserService userService;
 
@@ -24,9 +25,8 @@ public class UserController {
 
     @GetMapping()
     public ApiResponse<User> getInfo(@AuthenticationPrincipal Jwt jwt) {
-        UUID userId = UUID.fromString(jwt.getSubject());
-        User user = userService.getUserById(userId);
-        return ApiResponse.success(HttpStatus.OK, null, user);
+        UUID userId = JwtUtils.subjectToUUID(jwt);
+        return ApiResponse.success(HttpStatus.OK, null, userService.getUserById(userId));
     }
 
 }
