@@ -1,4 +1,5 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { CalendarIcon, CodeXmlIcon, EllipsisVerticalIcon, FileTextIcon, LightbulbIcon, MenuIcon, MessageSquareIcon, MoonIcon, PanelLeftIcon, PencilIcon, SunIcon, TrashIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMatch, useNavigate } from 'react-router'
@@ -8,20 +9,22 @@ import { errorMessage } from '../lib/i18n'
 import { keys } from '../lib/queryClient'
 import { useTheme } from '../lib/theme'
 import type { Conversation, Message } from '../lib/types'
-import { CalendarIcon, ChatIcon, CodeIcon, FileTextIcon, LightbulbIcon, MenuIcon, MoonIcon, MoreVIcon, PanelLeftIcon, SunIcon, TrashIcon } from '../ui/icons'
 import { Logo } from '../ui/Logo'
 import { Menu, iconButton } from '../ui/Menu'
 import { Composer } from './Composer'
+import { DeleteDialog, RenameDialog } from './ConversationDialogs'
 import { MessageList, type UiMessage } from './MessageList'
 import { Sidebar } from './Sidebar'
 
 // Chữ của từng gợi ý nằm trong locales/<lang>/chat.json: suggestions.<id>.title / subtitle / prompt
 const SUGGESTIONS: { id: string; icon: ReactNode; tint: string }[] = [
   { id: 'explain', icon: <LightbulbIcon size={18} />, tint: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
-  { id: 'code', icon: <CodeIcon size={18} />, tint: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400' },
+  { id: 'code', icon: <CodeXmlIcon size={18} />, tint: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400' },
   { id: 'plan', icon: <CalendarIcon size={18} />, tint: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400' },
   { id: 'summarize', icon: <FileTextIcon size={18} />, tint: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
 ]
+
+type DialogTarget = Pick<Conversation, 'id' | 'title'>
 
 const toUi = (m: Message): UiMessage => ({ key: String(m.id), role: m.role, content: m.content })
 const isAbort = (err: unknown) => err instanceof DOMException && err.name === 'AbortError'
@@ -30,7 +33,7 @@ const isAbort = (err: unknown) => err instanceof DOMException && err.name === 'A
  * Tin nhắn của một cuộc trò chuyện. Cache này cũng là nơi giữ tin nhắn đang stream,
  * nên staleTime: Infinity để không bao giờ có lần tải lại nào đè lên.
  */
-const messagesQuery = (conversationId: number) =>
+const messagesQuery = (conversationId: string) =>
   queryOptions({
     queryKey: keys.messages(conversationId),
     queryFn: async ({ signal }) => (await api.listMessages(conversationId, signal)).map(toUi),
@@ -40,7 +43,7 @@ const messagesQuery = (conversationId: number) =>
 export function ChatPage() {
   const { t } = useTranslation('chat')
   const match = useMatch('/c/:id')
-  const conversationId = match?.params.id ? Number(match.params.id) : null
+  const conversationId = match?.params.id ?? null
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuth()
@@ -52,26 +55,37 @@ export function ChatPage() {
   })
   const conversations = conversationsQuery.data ?? []
 
-  const messagesResult = useQuery({ ...messagesQuery(conversationId ?? -1), enabled: conversationId !== null })
+  const messagesResult = useQuery({ ...messagesQuery(conversationId ?? ''), enabled: conversationId !== null })
   const messages = conversationId === null ? [] : (messagesResult.data ?? [])
   const messagesLoading = conversationId !== null && messagesResult.isPending
 
   // Lỗi đã hiện toast qua QueryCache/MutationCache (lib/queryClient.ts), ở đây không cần try/catch
-  const createConversation = useMutation({ mutationFn: () => api.createConversation() })
+  const createConversation = useMutation({ mutationFn: (title: string) => api.createConversation(title) })
   const deleteConversation = useMutation({
-    mutationFn: (id: number) => api.deleteConversation(id),
+    mutationFn: (id: string) => api.deleteConversation(id),
     onSuccess: (_data, id) => {
       queryClient.setQueryData<Conversation[]>(keys.conversations, (prev) => prev?.filter((c) => c.id !== id))
       queryClient.removeQueries({ queryKey: keys.messages(id) })
     },
   })
 
+  const renameConversation = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => api.renameConversation(id, title),
+    onSuccess: (conv) => {
+      queryClient.setQueryData<Conversation[]>(keys.conversations, (prev) => prev?.map((c) => (c.id === conv.id ? conv : c)))
+    },
+  })
+
+  // Conversation đang mở hộp thoại đổi tên / xoá (null = đóng)
+  const [renaming, setRenaming] = useState<DialogTarget | null>(null)
+  const [deleting, setDeleting] = useState<DialogTarget | null>(null)
+
   const [streaming, setStreaming] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false) // ngăn kéo trên mobile
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // thu gọn trên desktop
 
   const abortRef = useRef<AbortController | null>(null)
-  const streamingConvRef = useRef<number | null>(null)
+  const streamingConvRef = useRef<string | null>(null)
   const seqRef = useRef(0)
 
   // Huỷ stream đang chạy khi rời trang (ví dụ đăng xuất)
@@ -91,11 +105,12 @@ export function ChatPage() {
       { key: aiKey, role: 'assistant', content: '', streaming: true },
     ]
 
-    let convId: number
+    let convId: string
     if (conversationId === null) {
       let conv: Conversation
       try {
-        conv = await createConversation.mutateAsync()
+        // Tiêu đề theo ngôn ngữ giao diện đang chọn
+        conv = await createConversation.mutateAsync(t('newChat', { ns: 'sidebar' }))
       } catch {
         return // toast do MutationCache hiện
       }
@@ -137,7 +152,7 @@ export function ChatPage() {
     }
   }
 
-  function remove(id: number) {
+  function remove(id: string) {
     deleteConversation.mutate(id, {
       onSuccess: () => {
         if (id === conversationId) navigate('/')
@@ -146,13 +161,15 @@ export function ChatPage() {
   }
 
   const current = conversations.find((c) => c.id === conversationId)
-  const empty = conversationId === null && messages.length === 0
+  // Trang chào (gợi ý) cho cả trang / lẫn conversation chưa có tin nhắn nào
+  const empty = !messagesLoading && messages.length === 0
 
   const sidebarProps = {
     conversations,
     loading: conversationsQuery.isPending,
     error: conversationsQuery.error ? errorMessage(conversationsQuery.error) : null,
-    onDelete: remove,
+    onRename: setRenaming,
+    onDelete: setDeleting,
   }
 
   return (
@@ -207,7 +224,7 @@ export function ChatPage() {
           )}
           {conversationId !== null && (
             <h1 className="flex min-w-0 items-center gap-2 text-sm font-medium">
-              <ChatIcon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
+              <MessageSquareIcon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
               <span className="truncate">{current?.title ?? t('conversationFallback')}</span>
             </h1>
           )}
@@ -225,16 +242,16 @@ export function ChatPage() {
             {conversationId !== null && (
               <Menu
                 label={t('conversationOptions')}
-                trigger={<MoreVIcon size={17} />}
+                trigger={<EllipsisVerticalIcon size={17} />}
                 triggerClassName={iconButton}
                 items={[
+                  // Conversation không có trong trang danh sách đã tải thì chưa biết tên → chỉ cho xoá
+                  ...(current ? [{ label: t('renameConversation'), icon: <PencilIcon size={15} />, onSelect: () => setRenaming(current) }] : []),
                   {
                     label: t('deleteConversation'),
                     icon: <TrashIcon size={15} />,
                     danger: true,
-                    onSelect: () => {
-                      if (confirm(t('confirmDelete', { title: current?.title ?? t('thisConversation') }))) remove(conversationId)
-                    },
+                    onSelect: () => setDeleting({ id: conversationId, title: current?.title ?? t('thisConversation') }),
                   },
                 ]}
               />
@@ -281,6 +298,9 @@ export function ChatPage() {
           autoFocusKey={conversationId ?? 'new'}
         />
       </main>
+
+      <RenameDialog target={renaming} onClose={() => setRenaming(null)} onRename={(id, title) => renameConversation.mutate({ id, title })} />
+      <DeleteDialog target={deleting} onClose={() => setDeleting(null)} onDelete={remove} />
     </div>
   )
 }

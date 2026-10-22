@@ -21,18 +21,25 @@ export const api = {
 
   me: (signal?: AbortSignal) => json<User>('me', { signal }),
 
-  listConversations: (signal?: AbortSignal) => json<Conversation[]>('conversations', { signal }),
+  /** Phân trang: `page` đếm từ 1, `size` tối đa 25. Sidebar hiện chỉ lấy trang đầu. */
+  listConversations: (signal?: AbortSignal, page = 1, size = 20) =>
+    json<Conversation[]>('conversations', { searchParams: { page, size }, signal }),
 
-  createConversation: (title?: string) => json<Conversation>('conversations', post(title ? { title } : {})),
+  /** `title` bắt buộc, 1–200 ký tự */
+  createConversation: (title: string) => json<Conversation>('conversations', post({ title })),
 
-  deleteConversation: async (id: number) => {
+  /** `title` bắt buộc, 1–200 ký tự */
+  renameConversation: (id: string, title: string) =>
+    json<Conversation>(`conversations/${id}`, { method: 'patch', json: { title } }),
+
+  deleteConversation: async (id: string) => {
     await request(`conversations/${id}`, { method: 'delete' })
   },
 
-  listMessages: (conversationId: number, signal?: AbortSignal) =>
+  listMessages: (conversationId: string, signal?: AbortSignal) =>
     json<Message[]>(`conversations/${conversationId}/messages`, { signal }),
 
-  async *sendMessage(conversationId: number, content: string, signal: AbortSignal): AsyncGenerator<ChatEvent> {
+  async *sendMessage(conversationId: string, content: string, signal: AbortSignal): AsyncGenerator<ChatEvent> {
     const res = await request(`conversations/${conversationId}/messages`, {
       ...post({ content }),
       headers: { Accept: 'text/event-stream, application/json' },

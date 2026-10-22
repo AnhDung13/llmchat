@@ -1,8 +1,8 @@
+import { CheckIcon, CopyIcon } from 'lucide-react'
 import { memo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { CheckIcon, CopyIcon } from '../ui/icons'
 
 const components: Components = {
   pre({ node, children }) {

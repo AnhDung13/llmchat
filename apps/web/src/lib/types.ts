@@ -29,16 +29,18 @@ export type TokenResponse = {
 export type LoginResponse = TokenResponse & { user: User }
 
 export type Conversation = {
-  id: number
+  /** UUID */
+  id: string
   title: string
   createdAt: string
-  updatedAt: string
+  modifiedAt: string
 }
 
 export type Role = 'user' | 'assistant'
 
 export type Message = {
-  id: number
+  /** UUID */
+  id: string
   role: Role
   content: string
   createdAt: string

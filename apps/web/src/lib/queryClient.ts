@@ -34,5 +34,5 @@ export const keys = {
   me: ['me'] as const,
   conversations: ['conversations'] as const,
   // Không đặt dưới ['conversations', ...]: invalidate danh sách hội thoại không được đụng tới tin nhắn đang stream
-  messages: (conversationId: number) => ['messages', conversationId] as const,
+  messages: (conversationId: string) => ['messages', conversationId] as const,
 }

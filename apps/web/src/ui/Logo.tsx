@@ -1,4 +1,4 @@
-import { SparkleIcon } from './icons'
+import { SparkleIcon } from 'lucide-react'
 
 export function Logo({ size = 40 }: { size?: number }) {
   return (
@@ -7,7 +7,7 @@ export function Logo({ size = 40 }: { size?: number }) {
       style={{ width: size, height: size, borderRadius: size * 0.28 }}
       aria-hidden
     >
-      <SparkleIcon size={size * 0.55} />
+      <SparkleIcon size={size * 0.55} fill="currentColor" />
     </div>
   )
 }

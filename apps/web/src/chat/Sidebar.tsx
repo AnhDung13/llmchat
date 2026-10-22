@@ -1,3 +1,4 @@
+import { ChevronDownIcon, EllipsisIcon, GlobeIcon, LogOutIcon, MessageSquareIcon, MoonIcon, PanelLeftIcon, PencilIcon, PlusIcon, SettingsIcon, SunIcon, TrashIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { NavLink } from 'react-router'
@@ -5,7 +6,6 @@ import { useAuth } from '../auth/context'
 import { setLanguage } from '../lib/i18n'
 import type { Conversation } from '../lib/types'
 import { useTheme } from '../lib/theme'
-import { ChatIcon, ChevronDownIcon, GlobeIcon, LogOutIcon, MoonIcon, MoreHIcon, PanelLeftIcon, PlusIcon, SettingsIcon, SunIcon, TrashIcon } from '../ui/icons'
 import { Avatar, Logo } from '../ui/Logo'
 import { Menu, iconButton } from '../ui/Menu'
 
@@ -14,13 +14,16 @@ type Props = {
   loading: boolean
   error: string | null
   onNewChat(): void
-  onDelete(id: number): void
+  /** Mở hộp thoại đổi tên */
+  onRename(conversation: Conversation): void
+  /** Mở hộp thoại xác nhận xoá */
+  onDelete(conversation: Conversation): void
   onNavigate(): void
   /** Thu gọn sidebar (desktop) / đóng ngăn kéo (mobile) */
   onCollapse(): void
 }
 
-export function Sidebar({ conversations, loading, error, onNewChat, onDelete, onNavigate, onCollapse }: Props) {
+export function Sidebar({ conversations, loading, error, onNewChat, onRename, onDelete, onNavigate, onCollapse }: Props) {
   const { user, logout } = useAuth()
   const { theme, toggle } = useTheme()
   const { t, i18n } = useTranslation('sidebar')
@@ -81,23 +84,20 @@ export function Sidebar({ conversations, loading, error, onNewChat, onDelete, on
                     }
                     title={c.title}
                   >
-                    <ChatIcon size={15} className="shrink-0 opacity-70" />
+                    <MessageSquareIcon size={15} className="shrink-0 opacity-70" />
                     <span className="truncate">{c.title}</span>
                   </NavLink>
-                  <div className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+                  <div className="absolute top-1/2 right-1 -translate-y-1/2 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100 has-aria-expanded:opacity-100">
                     <Menu
                       label={t('optionsFor', { title: c.title })}
-                      trigger={<MoreHIcon size={16} />}
+                      // Mở xuống dưới, lệch sang phải (mép trái menu thẳng mép trái nút ⋯) như ChatGPT
+                      side="bottom"
+                      align="start"
+                      trigger={<EllipsisIcon size={16} />}
                       triggerClassName="flex h-7 w-7 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-night-700"
                       items={[
-                        {
-                          label: t('delete'),
-                          icon: <TrashIcon size={15} />,
-                          danger: true,
-                          onSelect: () => {
-                            if (confirm(t('confirmDelete', { title: c.title }))) onDelete(c.id)
-                          },
-                        },
+                        { label: t('rename'), icon: <PencilIcon size={15} />, onSelect: () => onRename(c) },
+                        { label: t('delete'), icon: <TrashIcon size={15} />, danger: true, onSelect: () => onDelete(c) },
                       ]}
                     />
                   </div>
@@ -116,7 +116,7 @@ export function Sidebar({ conversations, loading, error, onNewChat, onDelete, on
         </div>
         <Menu
           label={t('settings')}
-          up
+          side="top"
           trigger={<SettingsIcon size={16} />}
           triggerClassName={iconButton}
           items={[

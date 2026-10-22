@@ -10,8 +10,8 @@
   "lightTheme": "Light mode",
   "darkTheme": "Dark mode",
   "conversationOptions": "Conversation options",
+  "renameConversation": "Rename",
   "deleteConversation": "Delete conversation",
-  "confirmDelete": "Delete \"{{title}}\"?",
   "greeting": "Hi {{name}}!",
   "intro": "I'm your AI assistant. Start a conversation by asking a question or picking a suggestion below.",
   "suggestions": {

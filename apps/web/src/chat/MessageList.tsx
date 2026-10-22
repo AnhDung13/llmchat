@@ -1,7 +1,7 @@
+import { CheckIcon, CopyIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/context'
-import { CheckIcon, CopyIcon } from '../ui/icons'
 import { Avatar, Logo } from '../ui/Logo'
 import { Markdown } from './Markdown'
 

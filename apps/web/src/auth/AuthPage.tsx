@@ -1,9 +1,10 @@
+import { EyeIcon, EyeOffIcon, LockIcon, MailIcon, UserIcon } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { GitHubIcon, GoogleIcon } from '../ui/icons'
 import { errorMessage, translateMessage } from '../lib/i18n'
-import { EyeIcon, EyeOffIcon, GitHubIcon, GoogleIcon, LockIcon, MailIcon, UserIcon } from '../ui/icons'
 import { Logo } from '../ui/Logo'
 import { useAuth } from './context'
 

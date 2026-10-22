@@ -1,6 +1,6 @@
+import { SendIcon, SquareIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SendIcon, StopIcon } from '../ui/icons'
 
 type Props = {
   streaming: boolean
@@ -67,7 +67,7 @@ export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
               aria-label={t('stop')}
               title={t('stop')}
             >
-              <StopIcon size={14} />
+              <SquareIcon size={14} fill="currentColor" />
             </button>
           ) : (
             <button

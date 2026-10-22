@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 export type MenuItem = {
   label: string
@@ -12,73 +13,35 @@ type Props = {
   trigger: ReactNode
   label: string
   items: MenuItem[]
-  align?: 'left' | 'right'
-  /** Mở lên trên thay vì xuống dưới (dùng cho menu ở đáy sidebar) */
-  up?: boolean
+  /** Menu mở về phía nào của nút (mặc định: bên dưới) */
+  side?: 'top' | 'right' | 'bottom' | 'left'
+  /** Căn theo mép đầu hay mép cuối của nút: side top/bottom → trái/phải, side left/right → trên/dưới */
+  align?: 'start' | 'end'
   triggerClassName?: string
 }
 
-export function Menu({ trigger, label, items, align = 'right', up = false, triggerClassName = '' }: Props) {
-  const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-
-  // Bấm ra ngoài hoặc nhấn Esc thì đóng
-  useEffect(() => {
-    if (!open) return
-    const onPointer = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false)
-    }
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('pointerdown', onPointer)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('pointerdown', onPointer)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [open])
-
+/**
+ * Menu thả xuống, dựng trên DropdownMenu của shadcn (Radix).
+ * Nội dung render qua portal ra cuối <body>, nên không bị phần tử xung quanh đè lên
+ * hay làm mờ theo; bấm ra ngoài, Esc, phím mũi tên đều có sẵn.
+ */
+export function Menu({ trigger, label, items, side = 'bottom', align = 'end', triggerClassName = '' }: Props) {
   return (
-    <div ref={rootRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        title={label}
-        className={triggerClassName}
-      >
+    // modal={false}: Radix mặc định đặt pointer-events: none cho <body> khi menu mở, làm mất con trỏ
+    // bàn tay và hiệu ứng hover ở mọi chỗ ngoài menu (kể cả chính nút vừa bấm)
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger aria-label={label} title={label} className={triggerClassName}>
         {trigger}
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className={`absolute z-50 min-w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-night-700 dark:bg-night-850 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          } ${up ? 'bottom-full mb-1.5' : 'top-full mt-1.5'}`}
-        >
-          {items.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false)
-                item.onSelect()
-              }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition ${
-                item.danger
-                  ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10'
-                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-night-800'
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={side} align={align} className="min-w-44">
+        {items.map((item) => (
+          <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.onSelect}>
+            {item.icon}
+            {item.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

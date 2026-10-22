@@ -1,3 +1,4 @@
+import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, loadEnv } from 'vite'
@@ -11,6 +12,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react(), tailwindcss()],
+    resolve: {
+      // import '@/...' = import từ src/ (shadcn dùng alias này)
+      alias: { '@': path.resolve(import.meta.dirname, './src') },
+    },
     server: {
       port: 5173,
       proxy: {

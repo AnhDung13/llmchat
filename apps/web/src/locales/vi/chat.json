@@ -10,8 +10,8 @@
   "lightTheme": "Giao diện sáng",
   "darkTheme": "Giao diện tối",
   "conversationOptions": "Tuỳ chọn cuộc trò chuyện",
+  "renameConversation": "Đổi tên",
   "deleteConversation": "Xoá cuộc trò chuyện",
-  "confirmDelete": "Xoá \"{{title}}\"?",
   "greeting": "Chào {{name}}!",
   "intro": "Tôi là trợ lý AI của bạn. Hãy bắt đầu cuộc trò chuyện bằng cách đặt câu hỏi hoặc chọn một gợi ý bên dưới.",
   "suggestions": {
