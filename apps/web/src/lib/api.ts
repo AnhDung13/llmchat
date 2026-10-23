@@ -30,7 +30,7 @@ export const api = {
 
   /** `title` bắt buộc, 1–200 ký tự */
   renameConversation: (id: string, title: string) =>
-    json<Conversation>(`conversations/${id}`, { method: 'patch', json: { title } }),
+    json<Conversation>(`conversations/${id}`, { method: 'put', json: { title } }),
 
   deleteConversation: async (id: string) => {
     await request(`conversations/${id}`, { method: 'delete' })

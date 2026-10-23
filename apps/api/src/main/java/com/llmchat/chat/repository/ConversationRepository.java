@@ -20,9 +20,9 @@ public class ConversationRepository {
         this.jdbcClient = jdbcClient;
     }
 
-    public Optional<Conversation> findById(UUID convoId, UUID userId) {
+    public Optional<Conversation> findById(UUID userId, UUID convoId) {
         String sql = "SELECT id, title, created_at, modified_at from conversations WHERE id = :id AND user_id = :userId";
-        return jdbcClient.sql(sql).param("id", convoId).param("userId", userId).query(ConversationRepository::mapRow)
+        return jdbcClient.sql(sql).param("userId", userId).param("id", convoId).query(ConversationRepository::mapRow)
                 .optional();
     }
 
@@ -38,6 +38,17 @@ public class ConversationRepository {
         return jdbcClient.sql(sql).param("userId", userId)
                 .param("title", title)
                 .query(ConversationRepository::mapRow).single();
+    }
+
+    public Optional<Conversation> updateConversation(UUID userId, UUID convoId, String title) {
+        String sql = "UPDATE conversations SET title = :title, modified_at = now() WHERE id = :id AND user_id = :userId RETURNING id, title, created_at, modified_at";
+        return jdbcClient.sql(sql).param("userId", userId).param("id", convoId).param("title", title)
+                .query(ConversationRepository::mapRow).optional();
+    }
+
+    public boolean deleteConversation(UUID userId, UUID convoId) {
+        String sql = "DELETE FROM conversations WHERE id = :id AND user_id = :userId";
+        return jdbcClient.sql(sql).param("userId", userId).param("id", convoId).update() > 0;
     }
 
     private static Conversation mapRow(ResultSet rs, int rowNum) throws SQLException {

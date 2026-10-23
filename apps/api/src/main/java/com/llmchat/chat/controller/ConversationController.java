@@ -7,9 +7,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -43,7 +45,7 @@ public class ConversationController {
     @GetMapping("/{id}")
     public ApiResponse<Conversation> getConversation(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
         UUID userId = JwtUtils.subjectToUUID(jwt);
-        return ApiResponse.success(HttpStatus.OK, null, conversationService.getConversation(id, userId));
+        return ApiResponse.success(HttpStatus.OK, null, conversationService.getConversation(userId, id));
     }
 
     @PostMapping
@@ -54,4 +56,20 @@ public class ConversationController {
                 conversationService.createConversation(userId, payload.title())));
     }
 
+    @PutMapping("/{id}")
+    public ApiResponse<Conversation> updateConversation(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody ConversationRequest payload) {
+        UUID userId = JwtUtils.subjectToUUID(jwt);
+        return ApiResponse.success(HttpStatus.OK, null,
+                conversationService.updateConversation(userId, id, payload.title()));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteConversation(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        UUID userId = JwtUtils.subjectToUUID(jwt);
+        conversationService.deleteConversation(userId, id);
+        return ResponseEntity.noContent().build();
+    }
 }

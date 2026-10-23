@@ -25,12 +25,24 @@ public class ConversationService {
         return conversationRepository.getConversations(userId, payload);
     }
 
-    public Conversation getConversation(UUID convoId, UUID userId) {
-        return conversationRepository.findById(convoId, userId)
+    public Conversation getConversation(UUID userId, UUID convoId) {
+        return conversationRepository.findById(userId, convoId)
                 .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageKey.CONVERSATION_NOT_FOUND));
     }
 
     public Conversation createConversation(UUID userId, String title) {
         return conversationRepository.insertConversation(userId, title);
+    }
+
+    public Conversation updateConversation(UUID userId, UUID convoId, String title) {
+        return conversationRepository.updateConversation(userId, convoId, title)
+                .orElseThrow(() -> new AppException(HttpStatus.NOT_FOUND, MessageKey.CONVERSATION_NOT_FOUND));
+    }
+
+    public void deleteConversation(UUID userId, UUID convoId) {
+        boolean deleted = conversationRepository.deleteConversation(userId, convoId);
+        if (!deleted) {
+            throw new AppException(HttpStatus.NOT_FOUND, MessageKey.CONVERSATION_NOT_FOUND);
+        }
     }
 }
