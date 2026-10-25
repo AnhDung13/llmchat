@@ -41,6 +41,11 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
+		<!-- Redis (StringRedisTemplate, Redis Streams) qua Lettuce -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
 		<!-- Driver để Java nói chuyện với PostgreSQL (chỉ cần lúc chạy) -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
