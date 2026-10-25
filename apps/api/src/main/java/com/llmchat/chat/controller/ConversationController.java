@@ -18,7 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.llmchat.chat.dto.ConversationRequest;
 import com.llmchat.chat.model.Conversation;
+import com.llmchat.chat.model.Message;
 import com.llmchat.chat.service.ConversationService;
+import com.llmchat.chat.service.MessageService;
 import com.llmchat.common.ApiResponse;
 import com.llmchat.common.JwtUtils;
 import com.llmchat.common.Paging;
@@ -29,9 +31,11 @@ import jakarta.validation.Valid;
 @RequestMapping("/conversations")
 public class ConversationController {
     private final ConversationService conversationService;
+    private final MessageService messageService;
 
-    public ConversationController(ConversationService conversationService) {
+    public ConversationController(ConversationService conversationService, MessageService messageService) {
         this.conversationService = conversationService;
+        this.messageService = messageService;
 
     }
 
@@ -72,4 +76,13 @@ public class ConversationController {
         conversationService.deleteConversation(userId, id);
         return ResponseEntity.noContent().build();
     }
+
+    // messages
+    @GetMapping("/{id}/messages")
+    public ApiResponse<List<Message>> getMessages(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        UUID userId = JwtUtils.subjectToUUID(jwt);
+        return ApiResponse.success(HttpStatus.OK, null, messageService.getMessages(userId, id));
+    }
+
 }
