@@ -15,12 +15,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.llmchat.chat.dto.ConversationRequest;
+import com.llmchat.chat.dto.MessageRequest;
 import com.llmchat.chat.model.Conversation;
 import com.llmchat.chat.model.Message;
 import com.llmchat.chat.service.ConversationService;
 import com.llmchat.chat.service.MessageService;
+import com.llmchat.chat.service.StreamingService;
 import com.llmchat.common.ApiResponse;
 import com.llmchat.common.JwtUtils;
 import com.llmchat.common.Paging;
@@ -30,12 +33,15 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/conversations")
 public class ConversationController {
+    private final StreamingService streamingService;
     private final ConversationService conversationService;
     private final MessageService messageService;
 
-    public ConversationController(ConversationService conversationService, MessageService messageService) {
+    public ConversationController(ConversationService conversationService, MessageService messageService,
+            StreamingService streamingService) {
         this.conversationService = conversationService;
         this.messageService = messageService;
+        this.streamingService = streamingService;
 
     }
 
@@ -83,6 +89,13 @@ public class ConversationController {
             @PathVariable UUID id) {
         UUID userId = JwtUtils.subjectToUUID(jwt);
         return ApiResponse.success(HttpStatus.OK, null, messageService.getMessages(userId, id));
+    }
+
+    @PostMapping("/{id}/stream")
+    public SseEmitter stream(@AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id, @RequestBody MessageRequest request) {
+        UUID userId = JwtUtils.subjectToUUID(jwt);
+        return streamingService.stream(userId, id, request);
     }
 
 }
