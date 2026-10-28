@@ -1,61 +1,39 @@
-import { CheckIcon, CopyIcon } from 'lucide-react'
-import { memo, useState, type ReactNode } from 'react'
+import { code } from '@streamdown/code'
+import { memo, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import ReactMarkdown, { type Components } from 'react-markdown'
-import remarkGfm from 'remark-gfm'
+import { Streamdown, type StreamdownTranslations } from 'streamdown'
 
-const components: Components = {
-  pre({ node, children }) {
-    // ```js → <pre><code class="language-js">; lấy tên ngôn ngữ để hiện ở đầu khối code
-    const code = node?.children[0]
-    const className = code?.type === 'element' ? code.properties.className : undefined
-    const lang = Array.isArray(className)
-      ? className.map(String).find((c) => c.startsWith('language-'))?.slice('language-'.length)
-      : undefined
-    return <CodeBlock lang={lang}>{children}</CodeBlock>
-  },
-  a({ href, children }) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer">
-        {children}
-      </a>
-    )
-  },
+// Streamdown thay cho react-markdown: tự đóng tạm markdown dở dang khi đang stream (không lộ `**`,
+// khối ``` chưa đóng không nuốt phần sau), chỉ render lại block cuối, tô màu code bằng Shiki.
+const plugins = { code }
+// Bảng không có nút nào; khối code chỉ giữ nút copy, bỏ nút tải file
+const controls = { table: false, code: { copy: true, download: false } }
+
+type Props = {
+  text: string
+  /** Đang nhận chữ: hiện chấm tròn ở cuối và hiệu ứng chữ hiện dần */
+  streaming?: boolean
 }
 
-function CodeBlock({ lang, children }: { lang?: string; children: ReactNode }) {
+export const Markdown = memo(function Markdown({ text, streaming = false }: Props) {
   const { t } = useTranslation('thread')
-  const [copied, setCopied] = useState(false)
-  return (
-    <div className="not-prose my-4 overflow-hidden rounded-xl border border-slate-800 bg-[#0d1224] dark:border-night-700 dark:bg-night-950">
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-1.5 text-xs text-slate-400">
-        <span>{lang ?? t('code')}</span>
-        <button
-          type="button"
-          onClick={(e) => {
-            const text = e.currentTarget.closest('.not-prose')?.querySelector('pre')?.innerText ?? ''
-            void navigator.clipboard.writeText(text).then(() => {
-              setCopied(true)
-              setTimeout(() => setCopied(false), 1500)
-            })
-          }}
-          className="flex items-center gap-1.5 rounded-md px-1.5 py-1 transition hover:bg-white/5 hover:text-slate-100"
-        >
-          {copied ? <CheckIcon size={13} /> : <CopyIcon size={13} />}
-          {t(copied ? 'copied' : 'copyCode')}
-        </button>
-      </div>
-      <pre className="overflow-x-auto p-4 font-mono text-[13px] leading-relaxed text-slate-100">{children}</pre>
-    </div>
-  )
-}
+  // Chữ trên nút copy, hộp thoại mở link... của Streamdown: locales/<lang>/thread.json → markdown
+  const translations = useMemo(() => t('markdown', { returnObjects: true }) as Partial<StreamdownTranslations>, [t])
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
-    <div className="prose prose-slate max-w-none text-[15px] dark:prose-invert prose-headings:font-semibold prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-code:rounded prose-code:bg-slate-100 prose-code:px-1 prose-code:py-0.5 prose-code:font-normal prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-night-800">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {text}
-      </ReactMarkdown>
-    </div>
+    <Streamdown
+      plugins={plugins}
+      isAnimating={streaming}
+      animated
+      caret="circle"
+      translations={translations}
+      controls={controls}
+      // 0 = không giới hạn chiều cao (mặc định code 400px, bảng 300px rồi cuộn bên trong)
+      codeBlockMaxHeight={0}
+      tableMaxHeight={0}
+      className="text-base leading-7"
+    >
+      {text}
+    </Streamdown>
   )
 })

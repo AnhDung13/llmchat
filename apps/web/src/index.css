@@ -1,7 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@plugin "@tailwindcss/typography";
+/* Cho Tailwind quét class trong Streamdown (package nằm ở node_modules gốc của monorepo) */
+@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../../node_modules/@streamdown/code/dist/*.js";
 
 /* dark: bật theo class "dark" trên <html> (nút chuyển theme), không theo media query */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -9,13 +11,18 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  /* Nền xanh đen cho dark mode */
-  --color-night-950: #0a0e1c;
-  --color-night-900: #0f1426;
-  --color-night-850: #141a30;
-  --color-night-800: #1a2139;
-  --color-night-700: #262e4b;
-  --color-night-600: #343d5f;
+  /* Nền tối ánh tím nhẹ cho dark mode, cùng tông với light mode (trắng ánh tím) và logo */
+  --color-night-950: #15131c; /* sidebar, nền khối code */
+  --color-night-900: #1b1924; /* nền chính */
+  --color-night-850: #221f2c;
+  --color-night-800: #2a2735; /* ô nhập */
+  --color-night-700: #3a3647; /* viền */
+  --color-night-600: #4b465a;
+}
+
+/* Gradient của logo "LLM Chat", dùng cho nút chính (nút gửi, nút Lưu...) */
+@utility bg-brand {
+  background-image: linear-gradient(to right, var(--color-violet-600), var(--color-purple-500), var(--color-fuchsia-500));
 }
 
 html,
@@ -77,7 +84,7 @@ body {
   --card-foreground: oklch(20.8% 0.042 265.755);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(20.8% 0.042 265.755);
-  --primary: oklch(51.1% 0.262 276.966); /* indigo-600 */
+  --primary: oklch(54.1% 0.281 293.009); /* violet-600: cùng tông logo */
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(96.8% 0.007 247.896); /* slate-100 */
   --secondary-foreground: oklch(20.8% 0.042 265.755);
@@ -88,14 +95,14 @@ body {
   --destructive: oklch(57.7% 0.245 27.325); /* red-600 */
   --border: oklch(92.9% 0.013 255.508); /* slate-200 */
   --input: oklch(92.9% 0.013 255.508);
-  --ring: oklch(58.5% 0.233 277.117); /* indigo-500 */
+  --ring: oklch(70.2% 0.183 293.541); /* violet-400 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(1 0 0);
+  --sidebar: oklch(1 0 0); /* nền khối code của Streamdown: trắng, nổi trên nền chat ánh tím */
   --sidebar-foreground: oklch(20.8% 0.042 265.755);
   --sidebar-primary: oklch(51.1% 0.262 276.966);
   --sidebar-primary-foreground: oklch(1 0 0);
@@ -112,7 +119,7 @@ body {
   --card-foreground: oklch(96.8% 0.007 247.896);
   --popover: var(--color-night-850);
   --popover-foreground: oklch(96.8% 0.007 247.896);
-  --primary: oklch(58.5% 0.233 277.117); /* indigo-500 */
+  --primary: oklch(60.6% 0.25 292.717); /* violet-500 */
   --primary-foreground: oklch(1 0 0);
   --secondary: var(--color-night-800);
   --secondary-foreground: oklch(96.8% 0.007 247.896);
@@ -123,13 +130,13 @@ body {
   --destructive: oklch(70.4% 0.191 22.216); /* red-400 */
   --border: var(--color-night-700);
   --input: var(--color-night-700);
-  --ring: oklch(58.5% 0.233 277.117);
+  --ring: oklch(60.6% 0.25 292.717); /* violet-500 */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: var(--color-night-900);
+  --sidebar: var(--color-night-950); /* nền khối code của Streamdown */
   --sidebar-foreground: oklch(96.8% 0.007 247.896);
   --sidebar-primary: oklch(58.5% 0.233 277.117);
   --sidebar-primary-foreground: oklch(1 0 0);
@@ -158,5 +165,129 @@ body {
   input[type="checkbox"],
   input[type="radio"] {
     cursor: pointer;
+  }
+
+  /* Thanh cuộn mảnh kiểu ChatGPT: không có rãnh, thanh kéo xám bo tròn, đậm hơn khi rê chuột.
+     Chrome/Safari/Edge dùng ::-webkit-scrollbar (chỉnh được bo góc, hover). Không đặt scrollbar-width /
+     scrollbar-color cho các trình duyệt này: Chrome 121+ thấy hai thuộc tính đó sẽ bỏ qua ::-webkit-scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  /* Viền trong suốt 1px + background-clip: thanh nhìn thấy chỉ 4px nhưng vùng bấm vẫn 6px cho dễ kéo */
+  ::-webkit-scrollbar-thumb {
+    border: 1px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    background-color: rgb(0 0 0 / 0.12);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(0 0 0 / 0.25);
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background-color: rgb(255 255 255 / 0.12);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(255 255 255 / 0.25);
+  }
+  /* Firefox không có ::-webkit-scrollbar, dùng thuộc tính chuẩn */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+    }
+    .dark * {
+      scrollbar-color: rgb(255 255 255 / 0.2) transparent;
+    }
+  }
+}
+
+/* Chữ "Đang suy nghĩ" có vệt sáng chạy qua, như ChatGPT */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.text-shimmer {
+  --shimmer-base: #a3a3a3; /* neutral-400 */
+  --shimmer-highlight: #7c3aed; /* violet-600 */
+  background: linear-gradient(90deg, var(--shimmer-base) 35%, var(--shimmer-highlight) 50%, var(--shimmer-base) 65%) 0 0 / 200% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2s linear infinite;
+}
+
+.dark .text-shimmer {
+  --shimmer-base: #737373; /* neutral-500 */
+  --shimmer-highlight: #c4b5fd; /* violet-300 */
+}
+
+/* Bảng của Streamdown: bỏ khung ngoài (viền, nền, padding) và khung bọc bảng (viền bo góc),
+   chỉ giữ đường kẻ giữa các dòng. CSS không nằm trong @layer nên thắng class Tailwind của Streamdown */
+[data-streamdown="table-wrapper"] {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+[data-streamdown="table-wrapper"] > div:has(> [data-streamdown="table"]) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Code trong dòng và tiêu đề bảng của Streamdown dùng bg-muted (xám rất nhạt), chìm vào nền chat ánh tím.
+   Cho nền tách hẳn ra (chữ giữ màu mặc định): code trong dòng = ô trắng có viền, tiêu đề bảng = dải tím nhạt */
+[data-streamdown="inline-code"] {
+  border: 1px solid var(--color-violet-200);
+  background-color: #fff;
+}
+.dark [data-streamdown="inline-code"] {
+  border-color: var(--color-night-600);
+  background-color: var(--color-night-800);
+}
+[data-streamdown="table-header"] {
+  background-color: var(--color-violet-100);
+}
+.dark [data-streamdown="table-header"] {
+  background-color: var(--color-night-800);
+}
+
+/* MarqueeText (ui/MarqueeText.tsx): chữ dài thì mờ ở cuối; rê chuột vào .marquee-host thì chữ chạy qua lại */
+@keyframes marquee {
+  0%,
+  15% {
+    transform: translateX(0);
+  }
+  85%,
+  100% {
+    transform: translateX(var(--marquee-distance));
+  }
+}
+
+.marquee[data-overflow] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+/* Đang chạy: mờ cả hai đầu vì chữ trôi ra từ bên trái */
+.marquee-host:hover .marquee[data-overflow] {
+  mask-image: linear-gradient(to right, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+}
+
+.marquee-host:hover .marquee[data-overflow] > span {
+  animation: marquee var(--marquee-duration) linear infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-host:hover .marquee[data-overflow] > span {
+    animation: none;
   }
 }

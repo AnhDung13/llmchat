@@ -43,11 +43,14 @@ export type Message = {
   id: string
   role: Role
   content: string
+  /** Phần suy luận của model (chỉ tin assistant); null nếu model không trả reasoning */
+  reasoning?: string | null
   createdAt: string
 }
 
 /** Các sự kiện frontend nhận được khi gửi một tin nhắn, dù backend trả JSON hay SSE. */
 export type ChatEvent =
+  | { type: 'reasoning'; text: string }
   | { type: 'delta'; text: string }
   | { type: 'done'; message: Message }
 

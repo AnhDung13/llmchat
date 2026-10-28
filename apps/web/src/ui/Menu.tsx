@@ -6,6 +6,8 @@ export type MenuItem = {
   icon?: ReactNode
   onSelect(): void
   danger?: boolean
+  /** Bấm xong vẫn giữ menu mở (ví dụ đổi ngôn ngữ để thấy chữ đổi ngay trong menu) */
+  keepOpen?: boolean
 }
 
 type Props = {
@@ -34,8 +36,17 @@ export function Menu({ trigger, label, items, side = 'bottom', align = 'end', tr
         {trigger}
       </DropdownMenuTrigger>
       <DropdownMenuContent side={side} align={align} className="min-w-44">
-        {items.map((item) => (
-          <DropdownMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.onSelect}>
+        {/* key theo vị trí: chữ của item đổi theo ngôn ngữ, key theo label sẽ làm item bị mount lại và mất focus */}
+        {items.map((item, i) => (
+          <DropdownMenuItem
+            key={i}
+            variant={item.danger ? 'destructive' : 'default'}
+            onSelect={(e) => {
+              // Radix đóng menu sau onSelect, trừ khi preventDefault
+              if (item.keepOpen) e.preventDefault()
+              item.onSelect()
+            }}
+          >
             {item.icon}
             {item.label}
           </DropdownMenuItem>
@@ -47,4 +58,4 @@ export function Menu({ trigger, label, items, side = 'bottom', align = 'end', tr
 
 /** Kiểu nút icon tròn nhỏ dùng ở header, sidebar */
 export const iconButton =
-  'flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-night-800 dark:hover:text-slate-100'
+  'flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-neutral-100 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-night-800 dark:hover:text-neutral-100'

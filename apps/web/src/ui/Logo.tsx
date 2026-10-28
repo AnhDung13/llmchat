@@ -1,14 +1,11 @@
-import { SparkleIcon } from 'lucide-react'
-
-export function Logo({ size = 40 }: { size?: number }) {
+/** Tên app dạng chữ gradient tím, dùng ở sidebar, header và trang đăng nhập. `className` đặt cỡ chữ, độ đậm */
+export function BrandName({ className = 'text-xl font-semibold' }: { className?: string }) {
   return (
-    <div
-      className="flex shrink-0 items-center justify-center bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-500/30"
-      style={{ width: size, height: size, borderRadius: size * 0.28 }}
-      aria-hidden
+    <span
+      className={`bg-gradient-to-r from-violet-600 via-purple-500 to-fuchsia-500 bg-clip-text tracking-tight text-transparent dark:from-violet-400 dark:via-purple-400 dark:to-fuchsia-400 ${className}`}
     >
-      <SparkleIcon size={size * 0.55} fill="currentColor" />
-    </div>
+      LLM Chat
+    </span>
   )
 }
 

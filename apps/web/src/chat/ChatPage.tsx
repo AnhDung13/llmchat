@@ -1,32 +1,32 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarIcon, CodeXmlIcon, EllipsisVerticalIcon, FileTextIcon, LightbulbIcon, MenuIcon, MessageSquareIcon, MoonIcon, PanelLeftIcon, PencilIcon, SunIcon, TrashIcon } from 'lucide-react'
+import { CalendarIcon, CodeXmlIcon, EllipsisIcon, FileTextIcon, LightbulbIcon, MenuIcon, MoonIcon, PanelLeftIcon, PencilIcon, SquarePenIcon, SunIcon, TrashIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useMatch, useNavigate } from 'react-router'
-import { useAuth } from '../auth/context'
 import { api } from '../lib/api'
 import { errorMessage } from '../lib/i18n'
 import { keys } from '../lib/queryClient'
 import { useTheme } from '../lib/theme'
 import type { Conversation, Message } from '../lib/types'
-import { Logo } from '../ui/Logo'
+import { BrandName } from '../ui/Logo'
+import { MarqueeText } from '../ui/MarqueeText'
 import { Menu, iconButton } from '../ui/Menu'
 import { Composer } from './Composer'
-import { DeleteDialog, RenameDialog } from './ConversationDialogs'
+import { DeleteDialog, RenameDialog, TITLE_MAX } from './ConversationDialogs'
 import { MessageList, type UiMessage } from './MessageList'
 import { Sidebar } from './Sidebar'
 
-// Chữ của từng gợi ý nằm trong locales/<lang>/chat.json: suggestions.<id>.title / subtitle / prompt
-const SUGGESTIONS: { id: string; icon: ReactNode; tint: string }[] = [
-  { id: 'explain', icon: <LightbulbIcon size={18} />, tint: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
-  { id: 'code', icon: <CodeXmlIcon size={18} />, tint: 'bg-indigo-100 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-400' },
-  { id: 'plan', icon: <CalendarIcon size={18} />, tint: 'bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400' },
-  { id: 'summarize', icon: <FileTextIcon size={18} />, tint: 'bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400' },
+// Chữ của từng gợi ý nằm trong locales/<lang>/chat.json: suggestions.<id>.title / prompt
+const SUGGESTIONS: { id: string; icon: ReactNode }[] = [
+  { id: 'explain', icon: <LightbulbIcon size={16} className="text-amber-500" /> },
+  { id: 'code', icon: <CodeXmlIcon size={16} className="text-sky-500" /> },
+  { id: 'plan', icon: <CalendarIcon size={16} className="text-emerald-500" /> },
+  { id: 'summarize', icon: <FileTextIcon size={16} className="text-orange-500" /> },
 ]
 
 type DialogTarget = Pick<Conversation, 'id' | 'title'>
 
-const toUi = (m: Message): UiMessage => ({ key: String(m.id), role: m.role, content: m.content })
+const toUi = (m: Message): UiMessage => ({ key: String(m.id), role: m.role, content: m.content, reasoning: m.reasoning ?? undefined })
 const isAbort = (err: unknown) => err instanceof DOMException && err.name === 'AbortError'
 
 /**
@@ -46,7 +46,6 @@ export function ChatPage() {
   const conversationId = match?.params.id ?? null
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { user } = useAuth()
   const { theme, toggle: toggleTheme } = useTheme()
 
   const conversationsQuery = useQuery({
@@ -135,7 +134,8 @@ export function ChatPage() {
     setStreaming(true)
     try {
       for await (const ev of api.sendMessage(convId, content, controller.signal)) {
-        if (ev.type === 'delta') updateAi((m) => ({ ...m, content: m.content + ev.text }))
+        if (ev.type === 'reasoning') updateAi((m) => ({ ...m, reasoning: (m.reasoning ?? '') + ev.text }))
+        else if (ev.type === 'delta') updateAi((m) => ({ ...m, content: m.content + ev.text }))
         else updateAi(() => toUi(ev.message))
       }
     } catch (err) {
@@ -187,8 +187,8 @@ export function ChatPage() {
       )}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
-          <div className="relative h-full w-72 shadow-xl">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div className="relative h-full w-[260px] shadow-xl">
             <Sidebar
               {...sidebarProps}
               onNewChat={() => {
@@ -202,30 +202,44 @@ export function ChatPage() {
         </div>
       )}
 
-      <main className="flex min-w-0 flex-1 flex-col">
-        <header
-          className={`flex h-14 shrink-0 items-center gap-2 px-4 ${
-            conversationId !== null ? 'border-b border-slate-200 dark:border-night-700' : ''
-          }`}
-        >
-          <button type="button" className={`${iconButton} -ml-1 md:hidden`} onClick={() => setSidebarOpen(true)} aria-label={t('openConversationList')}>
+      {/* Nền ánh tím đậm dần xuống dưới (sáng: trắng → violet-50, tối: night-900 → tím than), cùng tông sidebar; chữ vẫn dễ đọc */}
+      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-[#fdfcff] to-violet-50 dark:from-night-900 dark:to-[#211b31]">
+        <header className="flex h-[52px] shrink-0 items-center gap-1 px-2">
+          <button type="button" className={`${iconButton} md:hidden`} onClick={() => setSidebarOpen(true)} aria-label={t('openConversationList')}>
             <MenuIcon size={18} />
           </button>
           {sidebarCollapsed && (
-            <button
-              type="button"
-              className={`${iconButton} -ml-1 hidden md:flex`}
-              onClick={() => setSidebarCollapsed(false)}
-              aria-label={t('openSidebar')}
-              title={t('openSidebar')}
-            >
-              <PanelLeftIcon size={16} />
-            </button>
+            <>
+              <button
+                type="button"
+                className={`${iconButton} hidden md:flex`}
+                onClick={() => setSidebarCollapsed(false)}
+                aria-label={t('openSidebar')}
+                title={t('openSidebar')}
+              >
+                <PanelLeftIcon size={18} />
+              </button>
+              <button
+                type="button"
+                className={`${iconButton} hidden md:flex`}
+                onClick={() => navigate('/')}
+                aria-label={t('newChat', { ns: 'sidebar' })}
+                title={t('newChat', { ns: 'sidebar' })}
+              >
+                <SquarePenIcon size={18} />
+              </button>
+            </>
           )}
-          {conversationId !== null && (
-            <h1 className="flex min-w-0 items-center gap-2 text-sm font-medium">
-              <MessageSquareIcon size={16} className="shrink-0 text-slate-500 dark:text-slate-400" />
-              <span className="truncate">{current?.title ?? t('conversationFallback')}</span>
+          {current ? (
+            // key: đổi conversation thì thoát chế độ sửa
+            <TitleEditor key={current.id} title={current.title} onRename={(title) => renameConversation.mutate({ id: current.id, title })} />
+          ) : conversationId !== null ? (
+            // Conversation không có trong trang danh sách đã tải → chưa biết tên, không cho sửa
+            <h1 className="min-w-0 truncate px-2 text-base">{t('conversationFallback')}</h1>
+          ) : (
+            // Tên app đã nằm ở đầu sidebar; chỉ hiện ở header khi không thấy sidebar (mobile, hoặc đã thu gọn)
+            <h1 className={`px-2 ${sidebarCollapsed ? '' : 'md:hidden'}`}>
+              <BrandName />
             </h1>
           )}
 
@@ -237,12 +251,12 @@ export function ChatPage() {
               aria-label={theme === 'dark' ? t('switchToLight') : t('switchToDark')}
               title={theme === 'dark' ? t('lightTheme') : t('darkTheme')}
             >
-              {theme === 'dark' ? <SunIcon size={17} /> : <MoonIcon size={17} />}
+              {theme === 'dark' ? <SunIcon size={18} /> : <MoonIcon size={18} />}
             </button>
             {conversationId !== null && (
               <Menu
                 label={t('conversationOptions')}
-                trigger={<EllipsisVerticalIcon size={17} />}
+                trigger={<EllipsisIcon size={18} />}
                 triggerClassName={iconButton}
                 items={[
                   // Conversation không có trong trang danh sách đã tải thì chưa biết tên → chỉ cho xoá
@@ -260,11 +274,17 @@ export function ChatPage() {
         </header>
 
         {empty ? (
-          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-4 py-8">
-            <Logo size={64} />
-            <h2 className="mt-6 mb-3 text-center text-3xl font-semibold tracking-tight">{t('greeting', { name: user?.displayName })}</h2>
-            <p className="mb-10 max-w-md text-center text-sm leading-relaxed text-slate-500 dark:text-slate-400">{t('intro')}</p>
-            <div className="grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+          // Màn trống như ChatGPT: câu hỏi ở giữa, ô nhập ngay bên dưới, gợi ý dạng nút nhỏ
+          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto pb-[10vh]">
+            <h2 className="mb-8 px-4 text-center text-[28px] font-normal tracking-tight">{t('emptyHeading')}</h2>
+            <Composer
+              streaming={streaming}
+              onSend={(text) => void send(text)}
+              onStop={() => abortRef.current?.abort()}
+              autoFocusKey={conversationId ?? 'new'}
+              showHint={false}
+            />
+            <div className="mt-3 flex max-w-3xl flex-wrap justify-center gap-2 px-4">
               {SUGGESTIONS.map((s) => {
                 const prompt = t(`suggestions.${s.id}.prompt`)
                 return (
@@ -273,34 +293,91 @@ export function ChatPage() {
                     type="button"
                     onClick={() => void send(prompt)}
                     title={prompt}
-                    className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-left text-sm shadow-sm transition hover:border-indigo-300 hover:shadow-md dark:border-night-700 dark:bg-night-850 dark:hover:border-indigo-500/50"
+                    className="flex items-center gap-2 rounded-full border border-neutral-200 px-3.5 py-2 text-sm text-neutral-600 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-900 dark:border-night-700 dark:text-neutral-300 dark:hover:border-violet-500/40 dark:hover:bg-violet-500/10 dark:hover:text-violet-100"
                   >
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.tint}`}>{s.icon}</span>
-                    <span className="leading-snug">
-                      <span className="block text-slate-800 dark:text-slate-100">{t(`suggestions.${s.id}.title`)}</span>
-                      <span className="block text-slate-500 dark:text-slate-400">{t(`suggestions.${s.id}.subtitle`)}</span>
-                    </span>
+                    {s.icon}
+                    {t(`suggestions.${s.id}.title`)}
                   </button>
                 )
               })}
             </div>
           </div>
-        ) : messagesLoading ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-500">{t('loadingMessages')}</div>
         ) : (
-          <MessageList messages={messages} />
+          <>
+            {messagesLoading ? (
+              <div className="flex flex-1 items-center justify-center text-sm text-neutral-500">{t('loadingMessages')}</div>
+            ) : (
+              // key: đổi conversation thì mount lại để nhảy xuống tin mới nhất
+              <MessageList key={conversationId} messages={messages} />
+            )}
+            <Composer
+              streaming={streaming}
+              onSend={(text) => void send(text)}
+              onStop={() => abortRef.current?.abort()}
+              autoFocusKey={conversationId ?? 'new'}
+            />
+          </>
         )}
-
-        <Composer
-          streaming={streaming}
-          onSend={(text) => void send(text)}
-          onStop={() => abortRef.current?.abort()}
-          autoFocusKey={conversationId ?? 'new'}
-        />
       </main>
 
       <RenameDialog target={renaming} onClose={() => setRenaming(null)} onRename={(id, title) => renameConversation.mutate({ id, title })} />
       <DeleteDialog target={deleting} onClose={() => setDeleting(null)} onDelete={remove} />
     </div>
+  )
+}
+
+/** Tên conversation trên header: bấm vào thành ô nhập. Enter / bấm ra ngoài = lưu, Esc = huỷ */
+function TitleEditor({ title, onRename }: { title: string; onRename(title: string): void }) {
+  const { t } = useTranslation('chat')
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState(title)
+  // Esc: đánh dấu huỷ để lần blur (nếu có) khi ô nhập biến mất không lưu
+  const cancelledRef = useRef(false)
+
+  function commit() {
+    if (cancelledRef.current) return
+    const trimmed = value.trim()
+    if (trimmed && trimmed !== title) onRename(trimmed)
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <h1 className="min-w-0">
+        <button
+          type="button"
+          onClick={() => {
+            setValue(title)
+            cancelledRef.current = false
+            setEditing(true)
+          }}
+          className="marquee-host block max-w-full rounded-lg px-2 py-1 text-left text-base transition hover:bg-violet-100/60 dark:hover:bg-violet-500/10"
+          title={t('clickToRename')}
+        >
+          <MarqueeText text={title} />
+        </button>
+      </h1>
+    )
+  }
+
+  return (
+    <input
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return // đang gõ tiếng Việt (IME ghép chữ)
+        if (e.key === 'Enter') e.currentTarget.blur()
+        else if (e.key === 'Escape') {
+          cancelledRef.current = true
+          setEditing(false)
+        }
+      }}
+      onFocus={(e) => e.currentTarget.select()}
+      maxLength={TITLE_MAX}
+      aria-label={t('renameConversation')}
+      autoFocus
+      className="h-8 w-full max-w-md min-w-0 rounded-lg border border-violet-300 bg-white px-2 text-base outline-none ring-4 ring-violet-100 dark:border-violet-500/40 dark:bg-night-800 dark:ring-violet-500/10"
+    />
   )
 }

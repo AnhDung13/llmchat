@@ -11,28 +11,24 @@
   "darkTheme": "Giao diện tối",
   "conversationOptions": "Tuỳ chọn cuộc trò chuyện",
   "renameConversation": "Đổi tên",
+  "clickToRename": "Bấm để đổi tên",
   "deleteConversation": "Xoá cuộc trò chuyện",
-  "greeting": "Chào {{name}}!",
-  "intro": "Tôi là trợ lý AI của bạn. Hãy bắt đầu cuộc trò chuyện bằng cách đặt câu hỏi hoặc chọn một gợi ý bên dưới.",
+  "emptyHeading": "Hôm nay bạn muốn hỏi gì?",
   "suggestions": {
     "explain": {
       "title": "Giải thích một khái niệm",
-      "subtitle": "phức tạp theo cách đơn giản",
       "prompt": "Giải thích Dependency Injection trong Spring bằng ví dụ đời thường"
     },
     "code": {
       "title": "Viết code mẫu",
-      "subtitle": "với giải thích chi tiết",
       "prompt": "Viết code mẫu một REST controller trong Spring Boot, kèm giải thích từng phần"
     },
     "plan": {
       "title": "Lên kế hoạch học tập",
-      "subtitle": "cá nhân hóa",
       "prompt": "Lên kế hoạch 4 tuần học Spring Boot cho người đã biết Node.js"
     },
     "summarize": {
       "title": "Tóm tắt tài liệu",
-      "subtitle": "hoặc bài viết",
       "prompt": "Tóm tắt ngắn gọn JWT gồm những phần nào và vì sao không cần lưu session"
     }
   }

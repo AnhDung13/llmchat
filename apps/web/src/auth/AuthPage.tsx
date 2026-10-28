@@ -5,7 +5,7 @@ import { Link, Navigate, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { GitHubIcon, GoogleIcon } from '../ui/icons'
 import { errorMessage, translateMessage } from '../lib/i18n'
-import { Logo } from '../ui/Logo'
+import { BrandName } from '../ui/Logo'
 import { useAuth } from './context'
 
 type Mode = 'login' | 'register'
@@ -46,8 +46,9 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
       <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="mb-8 flex flex-col items-center gap-4 text-center">
-          <Logo size={56} />
-          <h1 className="text-4xl font-bold tracking-tight">LLM Chat</h1>
+          <h1>
+            <BrandName className="text-4xl font-bold" />
+          </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('tagline')}</p>
         </div>
 

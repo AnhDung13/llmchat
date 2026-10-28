@@ -1,6 +1,7 @@
 import { QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import 'streamdown/styles.css'
 import './index.css'
 import './lib/i18n'
 import App from './App'

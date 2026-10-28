@@ -1,4 +1,4 @@
-import { SendIcon, SquareIcon } from 'lucide-react'
+import { ArrowUpIcon, SquareIcon } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -7,9 +7,11 @@ type Props = {
   onSend(text: string): void
   onStop(): void
   autoFocusKey?: string | number
+  /** Dòng nhắc nhỏ bên dưới ô nhập (ẩn ở màn trống) */
+  showHint?: boolean
 }
 
-export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
+export function Composer({ streaming, onSend, onStop, autoFocusKey, showHint = true }: Props) {
   const { t } = useTranslation('thread')
   const [text, setText] = useState('')
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -42,9 +44,14 @@ export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
     }
   }
 
+  const roundButton = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition'
+
   return (
-    <form onSubmit={submit} className="mx-auto w-full max-w-3xl px-4 pt-2 pb-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-500/15 dark:border-night-700 dark:bg-night-850 dark:focus-within:border-indigo-500/60">
+    <form onSubmit={submit} className="mx-auto w-full max-w-3xl px-4 pb-3">
+      <div
+        className="flex cursor-text items-end gap-2 rounded-[28px] border border-neutral-200 bg-white py-2 pr-2 pl-5 shadow-[0_4px_16px_rgba(0,0,0,0.05)] transition focus-within:border-violet-300 focus-within:ring-4 focus-within:ring-violet-100 dark:border-transparent dark:bg-night-800 dark:shadow-none dark:focus-within:border-violet-500/40 dark:focus-within:ring-violet-500/10"
+        onClick={() => ref.current?.focus()}
+      >
         <textarea
           ref={ref}
           value={text}
@@ -53,35 +60,31 @@ export function Composer({ streaming, onSend, onStop, autoFocusKey }: Props) {
           rows={1}
           placeholder={t('placeholder')}
           aria-label={t('inputLabel')}
-          className="block max-h-[200px] w-full resize-none bg-transparent px-1 py-1 text-[15px] outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+          className="block max-h-[200px] min-w-0 flex-1 resize-none self-center bg-transparent py-1.5 text-base outline-none placeholder:text-neutral-400 dark:placeholder:text-neutral-500"
         />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <p className="truncate px-1 text-xs text-slate-400 dark:text-slate-500">
-            {t('hint')}
-          </p>
-          {streaming ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-              aria-label={t('stop')}
-              title={t('stop')}
-            >
-              <SquareIcon size={14} fill="currentColor" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!text.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-white shadow-sm shadow-indigo-500/30 transition hover:bg-indigo-600 disabled:bg-indigo-300 disabled:shadow-none dark:disabled:bg-indigo-500/40"
-              aria-label={t('sendLabel')}
-              title={t('send')}
-            >
-              <SendIcon size={15} />
-            </button>
-          )}
-        </div>
+        {streaming ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className={`${roundButton} bg-brand text-white hover:brightness-110`}
+            aria-label={t('stop')}
+            title={t('stop')}
+          >
+            <SquareIcon size={13} fill="currentColor" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!text.trim()}
+            className={`${roundButton} bg-brand text-white shadow-sm shadow-violet-600/30 hover:brightness-110 disabled:bg-violet-200 disabled:bg-none disabled:shadow-none dark:disabled:bg-violet-500/25 dark:disabled:text-violet-200/60`}
+            aria-label={t('sendLabel')}
+            title={t('send')}
+          >
+            <ArrowUpIcon size={18} strokeWidth={2.25} />
+          </button>
+        )}
       </div>
+      {showHint && <p className="mt-2 text-center text-xs text-neutral-500 dark:text-neutral-400">{t('hint')}</p>}
     </form>
   )
 }

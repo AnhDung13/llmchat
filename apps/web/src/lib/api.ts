@@ -58,8 +58,8 @@ export const api = {
     // Kiểu B: SSE
     if (!res.body) throw new ApiError(0, 'errors.streamUnsupported')
     for await (const ev of readSse(res.body)) {
-      if (ev.event === 'delta') {
-        yield { type: 'delta', text: (JSON.parse(ev.data) as { text: string }).text }
+      if (ev.event === 'reasoning' || ev.event === 'delta') {
+        yield { type: ev.event, text: (JSON.parse(ev.data) as { text: string }).text }
       } else if (ev.event === 'done') {
         yield { type: 'done', message: JSON.parse(ev.data) as Message }
         return

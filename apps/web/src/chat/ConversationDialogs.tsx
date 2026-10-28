@@ -2,7 +2,7 @@
 // Dùng chung cho menu "⋯" ở sidebar và menu trên header của ChatPage.
 
 import { useState, type FormEvent } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +19,13 @@ import { Input } from '@/components/ui/input'
 import type { Conversation } from '../lib/types'
 
 /** Khớp @Size(max = 200) của ConversationRequest ở backend */
-const TITLE_MAX = 200
+export const TITLE_MAX = 200
 
 type Target = Pick<Conversation, 'id' | 'title'>
+
+/** Nút bo tròn hẳn như ChatGPT */
+const pill = 'h-9 rounded-full px-4'
+
 
 /**
  * Giữ lại conversation cuối cùng khác null, để nội dung hộp thoại không biến mất
@@ -77,6 +81,7 @@ function RenameForm({ target, onSubmit }: { target: Target; onSubmit(title: stri
         <DialogTitle>{t('renameTitle')}</DialogTitle>
       </DialogHeader>
       <Input
+        className="h-10 rounded-xl px-3"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onFocus={(e) => e.currentTarget.select()}
@@ -86,11 +91,11 @@ function RenameForm({ target, onSubmit }: { target: Target; onSubmit(title: stri
       />
       <DialogFooter>
         <DialogClose asChild>
-          <Button type="button" variant="outline">
+          <Button type="button" variant="outline" className={pill}>
             {t('cancel')}
           </Button>
         </DialogClose>
-        <Button type="submit" disabled={!trimmed || trimmed === target.title}>
+        <Button type="submit" className={pill} disabled={!trimmed || trimmed === target.title}>
           {t('save')}
         </Button>
       </DialogFooter>
@@ -110,15 +115,23 @@ export function DeleteDialog({ target, onClose, onDelete }: DeleteProps) {
   const shown = useLastTarget(target)
   return (
     <AlertDialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
-      <AlertDialogContent>
+      <AlertDialogContent showCloseButton>
         <AlertDialogHeader>
           <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
-          <AlertDialogDescription>{t('deleteDescription', { title: shown?.title })}</AlertDialogDescription>
+          <AlertDialogDescription>
+            {/* Tên cuộc trò chuyện in đậm: <b> trong locales/<lang>/sidebar.json → deleteDescription */}
+            <Trans
+              t={t}
+              i18nKey="deleteDescription"
+              values={{ title: shown?.title }}
+              components={{ b: <strong className="font-medium text-foreground" /> }}
+            />
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-          <AlertDialogAction variant="destructive" onClick={() => shown && onDelete(shown.id)}>
-            {t('delete')}
+          <AlertDialogCancel className={pill}>{t('cancel')}</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" className={pill} onClick={() => shown && onDelete(shown.id)}>
+            {t('deleteConfirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
