@@ -40,8 +40,8 @@ export const api = {
     json<Message[]>(`conversations/${conversationId}/messages`, { signal }),
 
   async *sendMessage(conversationId: string, content: string, signal: AbortSignal): AsyncGenerator<ChatEvent> {
-    const res = await request(`conversations/${conversationId}/messages`, {
-      ...post({ content }),
+    const res = await request(`conversations/${conversationId}/stream`, {
+      ...post({ role: 'user', content }),
       headers: { Accept: 'text/event-stream, application/json' },
       signal,
       // LLM có thể trả lời lâu: không giới hạn thời gian chờ
