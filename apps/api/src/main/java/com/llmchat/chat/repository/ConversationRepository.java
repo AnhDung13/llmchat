@@ -46,6 +46,11 @@ public class ConversationRepository {
                 .query(ConversationRepository::mapRow).optional();
     }
 
+    public void touchConversation(UUID convoId) {
+        String sql = "UPDATE conversations SET modified_at = now() WHERE id = :id";
+        jdbcClient.sql(sql).param("id", convoId).update();
+    }
+
     public boolean deleteConversation(UUID userId, UUID convoId) {
         String sql = "DELETE FROM conversations WHERE id = :id AND user_id = :userId";
         return jdbcClient.sql(sql).param("userId", userId).param("id", convoId).update() > 0;

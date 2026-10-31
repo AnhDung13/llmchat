@@ -93,7 +93,7 @@ public class ConversationController {
 
     @PostMapping("/{id}/stream")
     public SseEmitter stream(@AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID id, @RequestBody MessageRequest request) {
+            @PathVariable UUID id, @Valid @RequestBody MessageRequest request) {
         UUID userId = JwtUtils.subjectToUUID(jwt);
         return streamingService.stream(userId, id, request);
     }

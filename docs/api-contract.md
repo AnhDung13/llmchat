@@ -109,6 +109,7 @@ type Message = {
   id: string          // UUID
   role: "user" | "assistant"
   content: string     // assistant trả về Markdown
+  reasoning: string | null  // phần suy luận của model; null với tin user hoặc model không trả reasoning
   createdAt: string
 }
 ```
@@ -311,6 +312,9 @@ Việc backend phải làm:
 Lỗi xảy ra **trước khi** stream bắt đầu (ví dụ `404`) vẫn trả JSON có envelope như mọi endpoint khác. Mỗi event có dạng `event:` + `data:` (JSON) + một dòng trống:
 
 ```
+event: reasoning
+data: {"text":"Người dùng hỏi về Spring Boot..."}
+
 event: delta
 data: {"text":"**Spring"}
 
@@ -318,12 +322,13 @@ event: delta
 data: {"text":" Boot** là"}
 
 event: done
-data: {"id":"c42e...","role":"assistant","content":"**Spring Boot** là ...","createdAt":"..."}
+data: {"id":"c42e...","role":"assistant","content":"**Spring Boot** là ...","reasoning":"Người dùng hỏi về Spring Boot...","createdAt":"..."}
 
 ```
 
 | Event | `data` | Ý nghĩa |
 |---|---|---|
+| `reasoning` | `{"text": "..."}` | Một đoạn suy luận của model (chỉ model có reasoning mới gửi). Frontend nối dần vào khối "Đang suy nghĩ" |
 | `delta` | `{"text": "..."}` | Một đoạn chữ mới. Frontend nối dần vào câu trả lời |
 | `done` | `Message` | Câu trả lời đầy đủ, đã lưu DB. Kết thúc stream |
 | `error` | `{"message": "..."}` | Lỗi giữa chừng (ví dụ LLM lỗi). Kết thúc stream |
